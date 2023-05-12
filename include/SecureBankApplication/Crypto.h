@@ -28,4 +28,7 @@ namespace Crypto
 
     // Verify a digital signature for a given message with a given public key. Returns true if the signature is valid, false otherwise.
     bool verifySignature(const unsigned char *publicKey, const std::string &message, const unsigned char *signature);
+
+    // Verify if two hashes are the same (password verification)
+    
 }

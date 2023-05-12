@@ -19,7 +19,7 @@ struct Message
 {
     std::string sender; // sender Id
     std::string receiver; // receiver Id
-    std::string command; // 
+    int command; // 
     std::string nonce; // nonce 
     std::string content; // data
     std::string hmac; // hmac(sender, receiver, content, nonce, )
