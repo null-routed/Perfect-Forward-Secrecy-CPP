@@ -3,8 +3,10 @@
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
+#include <opnessl/rand.h>
 #include <vector>
 #include <string>
+#include <cstring>
 
 using namespace std;
 
