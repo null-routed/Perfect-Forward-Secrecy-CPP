@@ -61,7 +61,7 @@ public:
 
 private:
     // Using a map to store sessions
-    // we store a sessions indexed by (just like in python dicts)
+    // we store a sessions indexed by username (or user id)(just like in python dicts)
     std::unordered_map<std::string, Session> sessions;
 };
 
