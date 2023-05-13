@@ -4,8 +4,10 @@
 #include <vector>
 #include <iostream>
 
+using namespace std;
+
 void print(std::vector <unsigned char> const &a) {
-   std::cout << "The vector elements are : ";
+   std::cout << "Generated HMAC : ";
 
    for(int i=0; i < a.size(); i++)
    std::cout << a.at(i) << ' ';
@@ -13,10 +15,10 @@ void print(std::vector <unsigned char> const &a) {
 
 int main() {
     std::vector<unsigned char> key = { 'f', 'o', 'o' };
-    std::vector<unsigned char> data = { 'd', 'u', 'p', 'a' };
+    std::vector<unsigned char> message = { 'd', 'u', 'p', 'a' };
     std::vector<unsigned char> hmac;
 
-    generateHMAC(key, data, hmac);
+    Crypto::generateHMAC(key, message, hmac);
     print(hmac);
 
     return 0;

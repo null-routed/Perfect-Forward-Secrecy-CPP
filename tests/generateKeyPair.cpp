@@ -17,7 +17,7 @@ int main() {
     std::vector<unsigned char> publicKey;
 
     // Generate the RSA key pair and store the keys in the vectors
-    generateRSAKeyPair(privateKey, publicKey);
+    Crypto::generateKeyPair(publicKey,privateKey);
 
     std::cout << "Private Key:";
     print(privateKey);
