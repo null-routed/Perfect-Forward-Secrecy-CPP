@@ -1,7 +1,5 @@
-#pragma once
-
 #include "../include/SecureBankApplication/Crypto.h"
-#include "../include/SecureBankApplication/Utils.h"
+#include "../include/SecureBankApplication/Constants.h"
 #include "Utils.cpp"
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
@@ -216,44 +214,44 @@ int Crypto::decryptMessage(const vector<unsigned char> &key, const vector<unsign
     return totallen;
 };
 
-string Crypto::generateNonce(int length)
+vector<unsigned char> Crypto::generateNonce(int length)
 {
-
+    vector<unsigned char> buffer;
     if (RAND_poll() != 1)
     {
-        return "";
+        return buffer;
     }
-    vector<unsigned char> buffer;
+
     buffer.resize(length);
 
     if (RAND_bytes(buffer.data(), length) != 1)
     {
-        return "";
+        return buffer;
     }
-    return bytesToHex(buffer);
+    return buffer;
 }
 
 int generateSignature(const vector<unsigned char> &privateKey, const string &message, vector<unsigned char> &signature)
 {
     size_t signature_length;
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-    if(!ctx)
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if (!ctx)
     {
         return -1;
     }
 
-    BIO* bio = BIO_new_mem_buf(privateKey.data(), privateKey.size());
-    EVP_PKEY* pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+    BIO *bio = BIO_new_mem_buf(privateKey.data(), privateKey.size());
+    EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
     BIO_free(bio);
 
-    if(!pkey)
+    if (!pkey)
     {
         cout << "Pkey read failed" << endl;
         EVP_MD_CTX_free(ctx);
         return -1;
     }
 
-    if(EVP_DigestSignInit(ctx, NULL, EVP_sha256(), NULL, pkey) != 1)
+    if (EVP_DigestSignInit(ctx, NULL, EVP_sha256(), NULL, pkey) != 1)
     {
         cout << "Digest sign Init failed" << endl;
         EVP_PKEY_free(pkey);
@@ -261,16 +259,16 @@ int generateSignature(const vector<unsigned char> &privateKey, const string &mes
         return -1;
     }
 
-    if(EVP_DigestSignUpdate(ctx, message.data(), message.size()) != 1)
+    if (EVP_DigestSignUpdate(ctx, message.data(), message.size()) != 1)
     {
-                cout << "Digest sign update failed" << endl;
+        cout << "Digest sign update failed" << endl;
 
         EVP_PKEY_free(pkey);
         EVP_MD_CTX_free(ctx);
         return -1;
     }
 
-    if(EVP_DigestSignFinal(ctx, NULL, &signature_length) != 1)
+    if (EVP_DigestSignFinal(ctx, NULL, &signature_length) != 1)
     {
         cout << "Digest sign final failed" << endl;
         EVP_PKEY_free(pkey);
@@ -280,7 +278,7 @@ int generateSignature(const vector<unsigned char> &privateKey, const string &mes
 
     signature.resize(signature_length);
 
-    if(EVP_DigestSignFinal(ctx, signature.data(), &signature_length) != 1)
+    if (EVP_DigestSignFinal(ctx, signature.data(), &signature_length) != 1)
     {
         cout << "Digest sign final failed" << endl;
         EVP_PKEY_free(pkey);
@@ -294,4 +292,43 @@ int generateSignature(const vector<unsigned char> &privateKey, const string &mes
     EVP_MD_CTX_free(ctx);
 
     return signature_length;
+}
+
+bool Crypto::hashWithSalt(const string &plaintext, vector<unsigned char> &saltedHash)
+{
+    vector<unsigned char> salt = Crypto::generateNonce(Constants::SALT_SIZE);
+
+    string toHash = bytesToHex(salt) + plaintext;
+    vector<unsigned char> digest(EVP_MD_size(EVP_sha256()));
+    unsigned int digestlen;
+
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+
+    if (!ctx)
+    {
+        return false;
+    }
+
+    if (EVP_DigestInit(ctx, EVP_sha256()) != 1)
+    {
+        EVP_MD_CTX_free(ctx);
+        return false;
+    };
+
+    if (EVP_DigestUpdate(ctx, toHash.c_str(), toHash.length()) != 1)
+    {
+        EVP_MD_CTX_free(ctx);
+        return false;
+    };
+    if (EVP_DigestFinal(ctx, digest.data(), &digestlen) != 1)
+    {
+        EVP_MD_CTX_free(ctx);
+        return false;
+    };
+
+    saltedHash.insert(saltedHash.end(), salt.begin(), salt.end());
+    saltedHash.insert(saltedHash.end(), digest.begin(), digest.end());
+
+    EVP_MD_CTX_free(ctx);
+    return true;
 }

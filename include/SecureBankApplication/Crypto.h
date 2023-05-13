@@ -54,12 +54,12 @@ namespace Crypto
     bool verifyHMAC(const std::vector<unsigned char> &key, const std::string &message, const std::vector<unsigned char> &hmac);
 
     /**
-     * @brief Generates a random hex-encoded string of any given length 
+     * @brief Generates a vector of random bytes of any given length 
      * 
      * @param length 
-     * @return std::string, random string or empty string on failure
+     * @return std::vector<unsigned char>, a vector of random bytes, empty array on error
      */
-    std::string generateNonce(int length);
+    std::vector<unsigned char> generateNonce(int length);
 
     // Generate a digital signature for a given message with a given private key. Returns the number of bytes in the signature, or a negative value if an error occurred.
     int generateSignature(const std::vector<unsigned char> &privateKey, const std::string &message, std::vector<unsigned char> &signature);
@@ -67,6 +67,7 @@ namespace Crypto
     // Verify a digital signature for a given message with a given public key. Returns true if the signature is valid, false otherwise.
     bool verifySignature(const std::vector<unsigned char> &publicKey, const std::string &message, const std::vector<unsigned char> &signature);
 
-    // Verify if two hashes are the same (password verification)
+    bool hashWithSalt(const std::string &plaintext, std::vector<unsigned char> &saltedHash);
+
 
 }

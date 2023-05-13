@@ -5,6 +5,7 @@
 #include <cstring>
 #include <sstream>
 #include <vector>
+#include "../include/SecureBankApplication/Utils.h"
 #include "../include/SecureBankApplication/Transaction.h"
 
 using namespace std;

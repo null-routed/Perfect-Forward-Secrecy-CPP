@@ -2,6 +2,7 @@
 #include <openssl/evp.h>
 
 namespace Constants {
+    constexpr int SALT_SIZE = 16;
     constexpr int MAX_BUFFER_SIZE = 1024; // Maximum buffer size for recv
     constexpr int USER_ID_LENGTH = 16; // User ID length, not sure if necessary
     constexpr int SERVER_PORT = 8080; // The port the server will use to handle incoming connections
