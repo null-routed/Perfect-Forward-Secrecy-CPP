@@ -12,15 +12,15 @@ int Crypto::encryptMessage(const vector<unsigned char> &key, string &message, ve
 {
 
     const EVP_CIPHER *cipher = EVP_aes_128_cbc();
-    int iv_length = EVP_CIPHER_IV_length(cipher);
+    int iv_length = EVP_CIPHER_iv_length(cipher);
     int block_size = EVP_CIPHER_block_size(cipher);
     unsigned char iv[iv_length];
 
     // Checking for integer overflow
     if (message.size() + 1 > INT_MAX - block_size)
     {
-        return -1
-    };
+        return -1;
+    }
 
     // Seeding the OpenSSL PRNG
     if (RAND_poll() == -1)
