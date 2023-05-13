@@ -8,7 +8,6 @@
 using namespace std;
 
 int main() {
-    // Create vectors to hold the private and public keys
     string password = "MyPa$$word!";
     vector<unsigned char> hash; 
 
@@ -17,7 +16,7 @@ int main() {
         cout << "Hashing failed" << endl;
         exit(1);
     }
-    cout << "Your hash:";
+    cout << "Your hash: ";
     cout << bytesToHex(hash) << endl;
     return 0;
 }
