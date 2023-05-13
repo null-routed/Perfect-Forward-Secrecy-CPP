@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstring>
 #include <sstream>
+#include <vector>
 #include "../include/SecureBankApplication/Transaction.h"
 
 using namespace std;
@@ -9,29 +10,26 @@ using namespace std;
 /**
  * @brief The function serializes the struct by building a string with all the
  * parameters of the struct, separated by |
- * 
- * Warning: the serializedMessage must be deleted, as this function uses new
+ *
  * @param toSerialize: reference to the Message struct to serialize
- * @return unsigned char*, a byte buffer ready to be encrypted or sent to a remote host using sockets
+ * @return vector<unsigned char>, a byte vector ready to be encrypted or sent to a remote host using sockets
  */
-unsigned char *serializeMessage(const Message &toSerialize)
+vector<unsigned char> serializeMessage(const Message &toSerialize)
 {
     string sm = toSerialize.sender + "|" + toSerialize.receiver + "|" + to_string(toSerialize.command) + "|" + toSerialize.nonce + "|" + toSerialize.content + "|" + toSerialize.hmac;
-    unsigned char *serializedMessage = new unsigned char[sm.size() + 1];
-    strcpy(reinterpret_cast<char *>(serializedMessage), sm.c_str());
-    return serializedMessage;
+    return vector<unsigned char>(sm.begin(), sm.end());
 }
 
 /**
  * @brief The function splits the string on the separator and populates the fields of the message struct
- * 
- * @param serialized a pointer to a byte buffer (unsigned char)
+ *
+ * @param serialized a byte vector
  * @return Message, a struct build out of the data contained in serialized
  */
-Message deserializeMessage(const unsigned char *serialized)
+Message deserializeMessage(const vector<unsigned char> &serialized)
 {
     Message msg;
-    string temp(serialized, serialized + strlen(reinterpret_cast<const char*>(serialized)));
+    string temp(serialized.begin(), serialized.end());
 
     stringstream ss(temp);
 
@@ -40,7 +38,7 @@ Message deserializeMessage(const unsigned char *serialized)
 
     string command;
     getline(ss, command, '|');
-    msg.command = std::stoi(command);
+    msg.command = stoi(command);
 
     getline(ss, msg.nonce, '|');
     getline(ss, msg.content, '|');
@@ -49,8 +47,8 @@ Message deserializeMessage(const unsigned char *serialized)
     return msg;
 }
 
-void exitWithError(const std::string &error)
+void exitWithError(const string &error)
 {
-    std::cerr << error << std::endl;
+    cerr << error << endl;
     exit(1);
 }
