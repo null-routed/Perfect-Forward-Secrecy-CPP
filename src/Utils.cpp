@@ -14,10 +14,10 @@ using namespace std;
  * @param toSerialize: reference to the Message struct to serialize
  * @return vector<unsigned char>, a byte vector ready to be encrypted or sent to a remote host using sockets
  */
-vector<unsigned char> serializeMessage(const Message &toSerialize)
+string serializeMessage(const Message &toSerialize)
 {
     string sm = toSerialize.sender + "|" + toSerialize.receiver + "|" + to_string(toSerialize.command) + "|" + toSerialize.nonce + "|" + toSerialize.content + "|" + toSerialize.hmac;
-    return vector<unsigned char>(sm.begin(), sm.end());
+    return sm;
 }
 
 /**
@@ -26,12 +26,11 @@ vector<unsigned char> serializeMessage(const Message &toSerialize)
  * @param serialized a byte vector
  * @return Message, a struct build out of the data contained in serialized
  */
-Message deserializeMessage(const vector<unsigned char> &serialized)
+Message deserializeMessage(const string &serialized)
 {
     Message msg;
-    string temp(serialized.begin(), serialized.end());
 
-    stringstream ss(temp);
+    stringstream ss(serialized);
 
     getline(ss, msg.sender, '|');
     getline(ss, msg.receiver, '|');
@@ -52,3 +51,4 @@ void exitWithError(const string &error)
     cerr << error << endl;
     exit(1);
 }
+
