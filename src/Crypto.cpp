@@ -1,9 +1,13 @@
+#pragma once
+
 #include "../include/SecureBankApplication/Crypto.h"
+#include "../include/SecureBankApplication/Utils.h"
+#include "Utils.cpp"
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
-#include <opnessl/rand.h>
+#include <openssl/rand.h>
 #include <vector>
 #include <string>
 #include <cstring>
@@ -70,13 +74,13 @@ int Crypto::encryptMessage(const vector<unsigned char> &key, string &message, ve
 
     EVP_CIPHER_CTX_free(ctx);
 #pragma optimize("", off)
-        fill(&message[0], 0, message.size());
+    memset(&message[0], 0, message.size());
 #pragma optimisze("", on)
 
     return encryptedMessage.size();
 }
 
-bool Crypto::generateKeyPair(std::vector<unsigned char> &publicKey, std::vector<unsigned char> privateKey)
+bool Crypto::generateKeyPair(vector<unsigned char> &publicKey, vector<unsigned char> &privateKey)
 {
     // Allocate a new RSA object
     RSA *rsa = RSA_new();
@@ -116,8 +120,8 @@ bool Crypto::generateKeyPair(std::vector<unsigned char> &publicKey, std::vector<
     return true;
 }
 
-bool Crypto::generateHMAC(const std::vector<unsigned char> &key, const std::string &message, std::vector<unsigned char> &hmac)
-{   
+bool Crypto::generateHMAC(const vector<unsigned char> &key, const string &message, vector<unsigned char> &hmac)
+{
     // Allocate a new HMAC_CTX object
     HMAC_CTX *hmac_ctx = HMAC_CTX_new();
 
@@ -130,7 +134,7 @@ bool Crypto::generateHMAC(const std::vector<unsigned char> &key, const std::stri
     HMAC_Init_ex(hmac_ctx, key.data(), key.size(), EVP_sha256(), nullptr);
 
     // Update the HMAC_CTX with the message
-    HMAC_Update(hmac_ctx, message.data(), data.size());
+    HMAC_Update(hmac_ctx, (unsigned char *)message.data(), message.size());
 
     // Finalize the HMAC_CTX and store the HMAC in the hmac vector
     unsigned int hmac_size = EVP_MD_size(EVP_sha256());
@@ -143,9 +147,25 @@ bool Crypto::generateHMAC(const std::vector<unsigned char> &key, const std::stri
     return true;
 }
 
-bool verifyHMAC(const std::vector<unsigned char> &key, const std::string &message, const std::vector<unsigned char> &hmac)
+bool Crypto::verifyHMAC(const vector<unsigned char> &key, const string &message, const vector<unsigned char> &hmac)
 {
+    // Allocate a new HMAC_CTX object
+    HMAC_CTX *hmac_ctx = HMAC_CTX_new();
 
+    // Initialize the HMAC_CTX with the key
+    HMAC_Init_ex(hmac_ctx, key.data(), key.size(), EVP_sha256(), nullptr);
+
+    // Update the HMAC_CTX with the data
+    HMAC_Update(hmac_ctx, (unsigned char *)message.data(), message.size());
+
+    // Finalize the HMAC_CTX and compare the HMAC with the expected value
+    unsigned int hmac_size = EVP_MD_size(EVP_sha256());
+    vector<unsigned char> expected_hmac(hmac_size);
+    HMAC_Final(hmac_ctx, expected_hmac.data(), &hmac_size);
+    bool result = (hmac == expected_hmac);
+
+    // Free the HMAC_CTX object
+    HMAC_CTX_free(hmac_ctx);
 }
 
 int Crypto::decryptMessage(const vector<unsigned char> &key, const vector<unsigned char> &encryptedMessage, string &decryptedMessage)
@@ -162,7 +182,7 @@ int Crypto::decryptMessage(const vector<unsigned char> &key, const vector<unsign
         return -1;
     }
 
-    if (EVP_DecryptionInit(ctx, cipher, key.data(), iv.data()) != 1)
+    if (EVP_DecryptInit(ctx, cipher, key.data(), iv.data()) != 1)
     {
         EVP_CIPHER_CTX_free(ctx);
         return -1;
@@ -186,12 +206,92 @@ int Crypto::decryptMessage(const vector<unsigned char> &key, const vector<unsign
     totallen += outlen;
 
     decryptedMessage.assign(plaintext.begin(), plaintext.begin() + totallen);
-    
+
     // overwriting the plaintext temp buffer with zeroes
 #pragma optimize("", off)
-    fill(plaintext.data(), 0, plaintext.size());
+    memset(plaintext.data(), 0, plaintext.size());
 #pragma optimisze("", on)
 
     EVP_CIPHER_CTX_free(ctx);
-    return totallensy; 
+    return totallen;
 };
+
+string Crypto::generateNonce(int length)
+{
+
+    if (RAND_poll() != 1)
+    {
+        return "";
+    }
+    vector<unsigned char> buffer;
+    buffer.resize(length);
+
+    if (RAND_bytes(buffer.data(), length) != 1)
+    {
+        return "";
+    }
+    return bytesToHex(buffer);
+}
+
+int generateSignature(const vector<unsigned char> &privateKey, const string &message, vector<unsigned char> &signature)
+{
+    size_t signature_length;
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if(!ctx)
+    {
+        return -1;
+    }
+
+    BIO* bio = BIO_new_mem_buf(privateKey.data(), privateKey.size());
+    EVP_PKEY* pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+    BIO_free(bio);
+
+    if(!pkey)
+    {
+        cout << "Pkey read failed" << endl;
+        EVP_MD_CTX_free(ctx);
+        return -1;
+    }
+
+    if(EVP_DigestSignInit(ctx, NULL, EVP_sha256(), NULL, pkey) != 1)
+    {
+        cout << "Digest sign Init failed" << endl;
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(ctx);
+        return -1;
+    }
+
+    if(EVP_DigestSignUpdate(ctx, message.data(), message.size()) != 1)
+    {
+                cout << "Digest sign update failed" << endl;
+
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(ctx);
+        return -1;
+    }
+
+    if(EVP_DigestSignFinal(ctx, NULL, &signature_length) != 1)
+    {
+        cout << "Digest sign final failed" << endl;
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(ctx);
+        return -1;
+    }
+
+    signature.resize(signature_length);
+
+    if(EVP_DigestSignFinal(ctx, signature.data(), &signature_length) != 1)
+    {
+        cout << "Digest sign final failed" << endl;
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(ctx);
+        return -1;
+    }
+
+    signature.resize(signature_length);
+
+    EVP_PKEY_free(pkey);
+    EVP_MD_CTX_free(ctx);
+
+    return signature_length;
+}

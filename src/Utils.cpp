@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 #include <iostream>
 #include <cstring>
@@ -7,25 +9,12 @@
 
 using namespace std;
 
-/**
- * @brief The function serializes the struct by building a string with all the
- * parameters of the struct, separated by |
- *
- * @param toSerialize: reference to the Message struct to serialize
- * @return vector<unsigned char>, a byte vector ready to be encrypted or sent to a remote host using sockets
- */
 string serializeMessage(const Message &toSerialize)
 {
     string sm = toSerialize.sender + "|" + toSerialize.receiver + "|" + to_string(toSerialize.command) + "|" + toSerialize.nonce + "|" + toSerialize.content + "|" + toSerialize.hmac;
     return sm;
 }
 
-/**
- * @brief The function splits the string on the separator and populates the fields of the message struct
- *
- * @param serialized a byte vector
- * @return Message, a struct build out of the data contained in serialized
- */
 Message deserializeMessage(const string &serialized)
 {
     Message msg;
@@ -46,9 +35,45 @@ Message deserializeMessage(const string &serialized)
     return msg;
 }
 
+string bytesToHex(const vector<unsigned char> &bytes)
+{
+    string hex;
+    hex.reserve(bytes.size() * 2);
+    const char *hexDigits = "0123456789ABCDEF";
+    for (size_t i = 0; i < bytes.size(); ++i)
+    {
+        unsigned char byte = bytes[i];
+        // Shifting the byte of 4 positions to encode the 4 most significant bits
+        hex.push_back(hexDigits[byte >> 4]);
+        // Masking the byte with 15 (0x0F) to encode the 4 least significant bits
+        hex.push_back(hexDigits[byte & 15]);
+    }
+    return hex;
+}
+
+vector<unsigned char> hexToBytes(const string &hex)
+{
+    vector<unsigned char> bytes;
+    bytes.reserve(hex.size() / 2);
+    for (size_t i = 0; i < hex.size(); i += 2)
+    {
+        // Using two hex char to build a byte
+        unsigned char byte = (hexDigitToValue(hex[i]) << 4) | hexDigitToValue(hex[i + 1]);
+        bytes.push_back(byte);
+    }
+    return bytes;
+}
+
+unsigned char hexDigitToValue(char digit)
+{
+    if ('0' <= digit && digit <= '9')
+        return digit - '0';
+    else
+        return 10 + (digit - 'A');
+}
+
 void exitWithError(const string &error)
 {
     cerr << error << endl;
     exit(1);
 }
-

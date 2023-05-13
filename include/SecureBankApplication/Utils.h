@@ -1,11 +1,28 @@
 // Utils.h
+#pragma once
 
 #include <vector>
 #include <string>
-#include <Transaction.h>
+#include "Transaction.h"
 
-std::vector<unsigned char> serializeMessage(const Message &toSerialize);
+/**
+ * @brief The function serializes the struct by building a string with all the
+ * parameters of the struct, separated by |
+ *
+ * @param toSerialize: reference to the Message struct to serialize
+ * @return vector<unsigned char>, a byte vector ready to be encrypted or sent to a remote host using sockets
+ */
+std::string serializeMessage(const Message &toSerialize);
 
+/**
+ * @brief The function splits the string on the separator and populates the fields of the message struct
+ *
+ * @param serialized a byte vector
+ * @return Message, a struct build out of the data contained in serialized
+ */
 Message deserializeMessage(const std::vector<unsigned char> &serialized);
 
+std::string bytesToHex(const std::vector<unsigned char> &bytes);
+std::vector<unsigned char> hexToBytes(const std::string &hex);
+unsigned char hexDigitToValue(char digit);
 void exitWithError(const std::string &error);

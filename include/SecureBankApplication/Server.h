@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include "Transaction.h"
+#include "Constants.h"
 #include <openssl/hmac.h>
 #include <openssl/aes.h>
 
@@ -18,11 +19,12 @@ struct User
     std::vector<Transfer> transferHistory;
 };
 
-struct Session {
-    unsigned char hmacSessionKey[EVP_MD_size(EVP_sha256())]; // assuming we use sha256 for the hmac
-    unsigned char aesSessionKey[AES_BLOCK_SIZE]; // array to store the session key for encryption
+struct Session
+{
+    std::vector<unsigned char> hmacSessionKey;
+    std::vector<unsigned char> aesSessionKey;
     // maybe something more?
-    std::vector<std::string>> sessionNonces;
+    std::vector<std::string> sessionNonces;
 };
 
 // Class for the bank server
@@ -47,7 +49,7 @@ public:
     void saveUserData(const std::string &filename);
 
     // Function to authenticate a user
-    // This function loads the user data, verifies the hashed password is the same as the one we stored (invoking the function in Crypto.h), 
+    // This function loads the user data, verifies the hashed password is the same as the one we stored (invoking the function in Crypto.h),
     // returns a bool
     bool authenticateUser(const std::string &username, const std::string &password);
 
