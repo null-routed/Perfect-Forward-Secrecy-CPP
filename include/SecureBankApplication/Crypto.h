@@ -67,7 +67,8 @@ namespace Crypto
     // Verify a digital signature for a given message with a given public key. Returns true if the signature is valid, false otherwise.
     bool verifySignature(const std::vector<unsigned char> &publicKey, const std::string &message, const std::vector<unsigned char> &signature);
 
-    bool hashWithSalt(const std::string &plaintext, std::vector<unsigned char> &saltedHash);
+    bool hashWithSalt(const std::string &plaintext, std::vector<unsigned char> &saltedHash, std::vector<unsigned char> salt);
 
+    bool verifyHash(const std::string &plaintext, const std::vector<unsigned char> &hash);
 
 }

@@ -294,9 +294,9 @@ int generateSignature(const vector<unsigned char> &privateKey, const string &mes
     return signature_length;
 }
 
-bool Crypto::hashWithSalt(const string &plaintext, vector<unsigned char> &saltedHash)
+bool Crypto::hashWithSalt(const string &plaintext, vector<unsigned char> &saltedHash, vector<unsigned char> salt = {})
 {
-    vector<unsigned char> salt = Crypto::generateNonce(Constants::SALT_SIZE);
+    salt = salt.empty() ? Crypto::generateNonce(Constants::SALT_SIZE) : salt;
 
     string toHash = bytesToHex(salt) + plaintext;
     vector<unsigned char> digest(EVP_MD_size(EVP_sha256()));
@@ -331,4 +331,15 @@ bool Crypto::hashWithSalt(const string &plaintext, vector<unsigned char> &salted
 
     EVP_MD_CTX_free(ctx);
     return true;
+}
+
+bool Crypto::verifyHash(const string &plaintext, const vector<unsigned char> &hash)
+{
+
+    vector<unsigned char> salt(hash.begin(), hash.begin() + Constants::SALT_SIZE);
+    vector<unsigned char> newHash;
+    if (!Crypto::hashWithSalt(plaintext, newHash, salt))
+        return false;
+
+    return CRYPTO_memcmp(newHash.data(), hash.data(), EVP_MD_size(EVP_sha256())) == 0;
 }
