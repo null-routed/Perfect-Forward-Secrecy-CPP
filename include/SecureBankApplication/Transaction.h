@@ -14,15 +14,17 @@ struct Transfer
     friend std::ostream &operator<<(std::ostream &os, const Transfer &transfer); // overloading the << operator for fancy printing
 };
 
-// Struct for a message. The message will then be serialized and encrypted to 
+struct Header {
+    uint32_t length;    
+    uint32_t sender;   
+};
+
 struct Message
 {
-    std::string sender; // sender Id
-    std::string receiver; // receiver Id
-    int command; // 
-    std::string nonce; // nonce 
-    std::string content; // data
-    std::string hmac; // hmac(sender, receiver, content, nonce, )
+    int command; 
+    std::string nonce;
+    std::string content;
+    std::string hmac; 
 };
 
 #endif

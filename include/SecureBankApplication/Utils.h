@@ -22,6 +22,10 @@ std::string serializeMessage(const Message &toSerialize);
  */
 Message deserializeMessage(const std::vector<unsigned char> &serialized);
 
+std::vector<char> serializeHeader(const Header& header);
+
+Header deserializeHeader(const char* buffer);
+
 std::string bytesToHex(const std::vector<unsigned char> &bytes);
 std::vector<unsigned char> hexToBytes(const std::string &hex);
 unsigned char hexDigitToValue(char digit);

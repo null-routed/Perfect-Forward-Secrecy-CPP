@@ -12,7 +12,7 @@ using namespace std;
 
 string serializeMessage(const Message &toSerialize)
 {
-    string sm = toSerialize.sender + "|" + toSerialize.receiver + "|" + to_string(toSerialize.command) + "|" + toSerialize.nonce + "|" + toSerialize.content + "|" + toSerialize.hmac;
+    string sm = to_string(toSerialize.command) + "|" + toSerialize.nonce + "|" + toSerialize.content + "|" + toSerialize.hmac;
     return sm;
 }
 
@@ -21,9 +21,6 @@ Message deserializeMessage(const string &serialized)
     Message msg;
 
     stringstream ss(serialized);
-
-    getline(ss, msg.sender, '|');
-    getline(ss, msg.receiver, '|');
 
     string command;
     getline(ss, command, '|');
@@ -34,6 +31,22 @@ Message deserializeMessage(const string &serialized)
     getline(ss, msg.hmac, '|');
 
     return msg;
+}
+
+vector<char> serializeHeader(const Header& header) 
+{
+    vector<char> serialized(sizeof(Header));
+    memcpy(serialized.data(), &header, sizeof(Header));
+
+    return serialized;
+}
+
+Header deserializeHeader(const char* buffer) {
+    Header header;
+    memcpy(&header, buffer, sizeof(header));
+    header.length = ntohl(header.length);
+    header.sender = ntohl(header.sender);
+    return header;
 }
 
 string bytesToHex(const vector<unsigned char> &bytes)
