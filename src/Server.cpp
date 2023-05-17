@@ -1,5 +1,6 @@
 #include "../include/SecureBankApplication/Server.h"
 #include "../include/SecureBankApplication/Constants.h"
+#include "Utils.cpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
@@ -71,13 +72,12 @@ void Server::start_server()
 
     int server_socket = socket(PF_INET, SOCK_STREAM, 0);
 
-    // Define the server address
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(Constants::SERVER_PORT);
     server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_addr));
+    bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr));
 
     if (listen(server_socket, 50) == 0)
         cout << "[+] Listening..." << endl;
@@ -102,3 +102,12 @@ void Server::start_server()
         close(new_socket);
     }
 }
+
+void Server::handle_client_connection(int new_socket)
+{
+    vector<unsigned char> header_buffer(Constants::HEADER_SIZE);
+    int ret = recv(new_socket, header_buffer.data(), header_buffer.size(), 0);
+
+
+}
+
