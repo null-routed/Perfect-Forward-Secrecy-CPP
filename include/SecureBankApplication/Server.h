@@ -8,38 +8,43 @@
 #include "Constants.h"
 #include <openssl/hmac.h>
 #include <openssl/aes.h>
-
+#include <chrono>
+#include <pthread.h>
 // User data structure
 struct User
 {
     std::string username;
-    std::string accountId;
+    std::string account_id;
     double balance;
-    std::string hashedPassword;
-    std::vector<Transfer> transferHistory;
+    std::string hashed_password;
+    std::vector<Transfer> transfer_history;
 };
 
 struct Session
 {
-    std::vector<unsigned char> hmacSessionKey;
-    std::vector<unsigned char> aesSessionKey;
-    // maybe something more?
-    std::vector<std::string> sessionNonces;
+    std::vector<unsigned char> hmac_session_key;
+    std::vector<unsigned char> aes_session_key;
+    std::vector<std::string> session_nonces;
+    std::chrono::steady_clock::time_point last_ping;
 };
 
 // Class for the bank server
 class Server
 {
 public:
-    Server();  // constructor
-    ~Server(); // destructor, maybe not even necessary
+    Server();  
+    ~Server(); 
 
     // Function to start the server
     // The server starts the websocket server and starts listening for clients to serve
-    void startServer();
+    void start_server();
+
+    void check_expired_sessions();
+
+    bool destroy_session_keys();
 
     // Function to handle a client connection
-    void handleClientConnection(int clientSocket);
+    void handle_client_connection(int clientSocket);
 
     // Function to load user data from a file
     // The idea behind this is: Client requests something, Server populates a User structure with all the necessary data of that user
@@ -65,6 +70,9 @@ private:
     // Using a map to store sessions
     // we store a sessions indexed by username (or user id)(just like in python dicts)
     std::unordered_map<std::string, Session> sessions;
+
+    // pthread mutex to access the Sessions shared variable
+    pthread_mutex_t sessions_mutex;
 };
 
 #endif // SERVER_H
