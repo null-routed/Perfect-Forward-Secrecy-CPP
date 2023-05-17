@@ -86,7 +86,7 @@ unsigned char hexDigitToValue(char digit)
         return 10 + (digit - 'A');
 }
 
-void exitWithError(const string &error)
+void exit_with_error(const string &error)
 {
     cerr << error << endl;
     exit(1);
