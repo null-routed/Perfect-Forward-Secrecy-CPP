@@ -28,3 +28,27 @@ struct Message
 };
 
 #endif
+
+// Command = login
+// nonce =dfadhfauidhfa
+// username|password
+
+// hmac(login-dfadhfauidhfa-username|password)
+// enc(hmac)
+
+// sender = session_id
+// length = length(enc)
+
+// send header
+// send message
+
+// Client:
+// command = CLIENT_HELLO
+// nonce = None
+// content = R
+
+// Server:
+// command = SERVER_HELLO
+// nonce = None
+// content = TempPubK, Sign(<R || TempPubK, privK), Certificate
+

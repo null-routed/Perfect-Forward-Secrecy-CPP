@@ -8,7 +8,7 @@ using namespace std;
 
 int main(){
 
-    Message msg = {"123", "456", 1, "abcde", "HELLO_SERVER", "abcd"};
+    Message msg = {1, "abcde", "HELLO_SERVER", "abcd"};
 
     string serialized = serializeMessage(msg);
     cout << serialized << endl;

@@ -73,97 +73,74 @@ int Crypto::encryptMessage(const vector<unsigned char> &key, string &message, ve
     EVP_CIPHER_CTX_free(ctx);
 #pragma optimize("", off)
     memset(&message[0], 0, message.size());
-#pragma optimisze("", on)
+#pragma optimize("", on)
 
     return encryptedMessage.size();
 }
 
-bool Crypto::generateKeyPair(vector<unsigned char> &publicKey, vector<unsigned char> &privateKey)
+bool Crypto::generate_key_pair(vector<unsigned char> &priv_key, vector<unsigned char> &pub_key)
 {
-    // Allocate a new RSA object
-    RSA *rsa = RSA_new();
+    int ret = 0;
+    RSA *r = RSA_new();
+    BIGNUM *bignum = BN_new();
 
-    if (!rsa)
+    ret = BN_set_word(bignum, RSA_F4);
+    if (ret != 1)
     {
         return false;
     }
 
-    // Generate a new RSA key pair
-    BIGNUM *bne = BN_new();
-
-    if (!bne)
+    ret = RSA_generate_key_ex(r, 2048, bignum, NULL);
+    if (ret != 1)
     {
+        RSA_free(r);
+        BN_free(bignum);
         return false;
     }
 
-    BN_set_word(bne, RSA_F4);
-    RSA_generate_key_ex(rsa, 2048, bne, nullptr);
+    BIO *bio = BIO_new(BIO_s_mem());
+    PEM_write_bio_RSAPrivateKey(bio, r, NULL, NULL, 0, NULL, NULL);
 
-    // Convert the private key to DER format and store it in the private key vector
-    int privateKeySize = i2d_RSAPrivateKey(rsa, nullptr);
-    privateKey.resize(privateKeySize);
-    unsigned char *p = privateKey.data();
-    i2d_RSAPrivateKey(rsa, &p);
+    char *pem_key;
+    long keylen = BIO_get_mem_data(bio, &pem_key);
 
-    // Convert the public key to DER format and store it in the public key vector
-    int publicKeySize = i2d_RSAPublicKey(rsa, nullptr);
-    publicKey.resize(publicKeySize);
-    p = publicKey.data();
-    i2d_RSAPublicKey(rsa, &p);
+    priv_key.assign(pem_key, pem_key + keylen);
 
-    // Free the RSA object and the BIGNUM object
-    RSA_free(rsa);
-    BN_free(bne);
+    BIO_free(bio);
+
+    bio = BIO_new(BIO_s_mem());
+    PEM_write_bio_RSAPublicKey(bio, r);
+
+    keylen = BIO_get_mem_data(bio, &pem_key);
+
+    pub_key.assign(pem_key, pem_key + keylen);
+
+    BIO_free(bio);
+    RSA_free(r);
+    BN_free(bignum);
 
     return true;
 }
 
 bool Crypto::generateHMAC(const vector<unsigned char> &key, const string &message, vector<unsigned char> &hmac)
 {
-    // Allocate a new HMAC_CTX object
-    HMAC_CTX *hmac_ctx = HMAC_CTX_new();
-
-    if (!hmac_ctx)
-    {
-        return false;
-    }
-
-    // Initialize the HMAC_CTX with the key
-    HMAC_Init_ex(hmac_ctx, key.data(), key.size(), EVP_sha256(), nullptr);
-
-    // Update the HMAC_CTX with the message
-    HMAC_Update(hmac_ctx, (unsigned char *)message.data(), message.size());
-
-    // Finalize the HMAC_CTX and store the HMAC in the hmac vector
     unsigned int hmac_size = EVP_MD_size(EVP_sha256());
     hmac.resize(hmac_size);
-    HMAC_Final(hmac_ctx, hmac.data(), &hmac_size);
 
-    // Free the HMAC_CTX object
-    HMAC_CTX_free(hmac_ctx);
+    // Create HMAC
+    HMAC(EVP_sha256(), key.data(), key.size(), (const unsigned char *)message.data(), message.size(), hmac.data(), &hmac_size);
 
     return true;
 }
 
 bool Crypto::verifyHMAC(const vector<unsigned char> &key, const string &message, const vector<unsigned char> &hmac)
 {
-    // Allocate a new HMAC_CTX object
-    HMAC_CTX *hmac_ctx = HMAC_CTX_new();
+    vector<unsigned char> expected_hmac;
+    generateHMAC(key, message, expected_hmac);
 
-    // Initialize the HMAC_CTX with the key
-    HMAC_Init_ex(hmac_ctx, key.data(), key.size(), EVP_sha256(), nullptr);
-
-    // Update the HMAC_CTX with the data
-    HMAC_Update(hmac_ctx, (unsigned char *)message.data(), message.size());
-
-    // Finalize the HMAC_CTX and compare the HMAC with the expected value
-    unsigned int hmac_size = EVP_MD_size(EVP_sha256());
-    vector<unsigned char> expected_hmac(hmac_size);
-    HMAC_Final(hmac_ctx, expected_hmac.data(), &hmac_size);
     bool result = (hmac == expected_hmac);
 
-    // Free the HMAC_CTX object
-    HMAC_CTX_free(hmac_ctx);
+    return result;
 }
 
 int Crypto::decryptMessage(const vector<unsigned char> &key, const vector<unsigned char> &encryptedMessage, string &decryptedMessage)
@@ -231,70 +208,102 @@ vector<unsigned char> Crypto::generateNonce(int length)
     return buffer;
 }
 
-int generateSignature(const vector<unsigned char> &privateKey, const string &message, vector<unsigned char> &signature)
+int Crypto::generate_signature(const vector<unsigned char> &priv_key, const string &message, vector<unsigned char> &signature)
 {
-    size_t signature_length;
-    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    if (!ctx)
+    RSA *rsa = RSA_new();
+    BIO *bio = BIO_new_mem_buf(priv_key.data(), (int)priv_key.size());
+
+    if (!PEM_read_bio_RSAPrivateKey(bio, &rsa, NULL, NULL))
     {
+        RSA_free(rsa);
+        BIO_free(bio);
         return -1;
     }
 
-    BIO *bio = BIO_new_mem_buf(privateKey.data(), privateKey.size());
-    EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+    EVP_PKEY *evp_pkey = EVP_PKEY_new();
+    EVP_PKEY_assign_RSA(evp_pkey, rsa);
+
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+
+    if (EVP_SignInit(ctx, EVP_sha256()) != 1)
+    {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(evp_pkey);
+        BIO_free(bio);
+        return -1;
+    }
+
+    if (EVP_SignUpdate(ctx, message.c_str(), message.size()) != 1)
+    {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(evp_pkey);
+        BIO_free(bio);
+        return -1;
+    }
+
+    unsigned int sig_len;
+    if (EVP_SignFinal(ctx, NULL, &sig_len, evp_pkey) != 1)
+    {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(evp_pkey);
+        BIO_free(bio);
+        return -1;
+    }
+
+    signature.resize(sig_len);
+
+    if (EVP_SignFinal(ctx, signature.data(), &sig_len, evp_pkey) != 1)
+    {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(evp_pkey);
+        BIO_free(bio);
+        return -1;
+    }
+
+    signature.resize(sig_len);
+    EVP_MD_CTX_free(ctx);
+    EVP_PKEY_free(evp_pkey);
     BIO_free(bio);
 
-    if (!pkey)
-    {
-        cout << "Pkey read failed" << endl;
-        EVP_MD_CTX_free(ctx);
-        return -1;
-    }
-
-    if (EVP_DigestSignInit(ctx, NULL, EVP_sha256(), NULL, pkey) != 1)
-    {
-        cout << "Digest sign Init failed" << endl;
-        EVP_PKEY_free(pkey);
-        EVP_MD_CTX_free(ctx);
-        return -1;
-    }
-
-    if (EVP_DigestSignUpdate(ctx, message.data(), message.size()) != 1)
-    {
-        cout << "Digest sign update failed" << endl;
-
-        EVP_PKEY_free(pkey);
-        EVP_MD_CTX_free(ctx);
-        return -1;
-    }
-
-    if (EVP_DigestSignFinal(ctx, NULL, &signature_length) != 1)
-    {
-        cout << "Digest sign final failed" << endl;
-        EVP_PKEY_free(pkey);
-        EVP_MD_CTX_free(ctx);
-        return -1;
-    }
-
-    signature.resize(signature_length);
-
-    if (EVP_DigestSignFinal(ctx, signature.data(), &signature_length) != 1)
-    {
-        cout << "Digest sign final failed" << endl;
-        EVP_PKEY_free(pkey);
-        EVP_MD_CTX_free(ctx);
-        return -1;
-    }
-
-    signature.resize(signature_length);
-
-    EVP_PKEY_free(pkey);
-    EVP_MD_CTX_free(ctx);
-
-    return signature_length;
+    return sig_len;
 }
 
-bool Crypto::hashWithSalt(const string &plaintext, vector<unsigned char> &saltedHash, vector<unsigned char> salt = {})
+bool Crypto::verify_signature(const string &message, const vector<unsigned char> &signature, const vector<unsigned char> &pub_key)
+{
+    RSA *rsa = RSA_new();
+    BIO *bio = BIO_new_mem_buf(pub_key.data(), (int)pub_key.size());
+
+    if (!PEM_read_bio_RSAPublicKey(bio, &rsa, NULL, NULL))
+    {
+        RSA_free(rsa);
+        BIO_free(bio);
+        return false;
+    }
+
+    EVP_PKEY *evp_pkey = EVP_PKEY_new();
+    EVP_PKEY_assign_RSA(evp_pkey, rsa);
+
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    EVP_VerifyInit(ctx, EVP_sha256());
+
+    if (EVP_VerifyUpdate(ctx, message.c_str(), message.size()) != 1)
+    {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(evp_pkey);
+        BIO_free(bio);
+        return false;
+    }
+
+    bool result = (EVP_VerifyFinal(ctx, signature.data(), (unsigned int)signature.size(), evp_pkey) == 1);
+
+    EVP_MD_CTX_free(ctx);
+    EVP_PKEY_free(evp_pkey);
+    BIO_free(bio);
+
+    return result;
+}
+
+bool Crypto::hash_with_salt(const string &plaintext, vector<unsigned char> &saltedHash, vector<unsigned char> salt)
 {
     salt = salt.empty() ? Crypto::generateNonce(Constants::SALT_SIZE) : salt;
 
@@ -338,7 +347,7 @@ bool Crypto::verifyHash(const string &plaintext, const vector<unsigned char> &ha
 
     vector<unsigned char> salt(hash.begin(), hash.begin() + Constants::SALT_SIZE);
     vector<unsigned char> newHash;
-    if (!Crypto::hashWithSalt(plaintext, newHash, salt))
+    if (!Crypto::hash_with_salt(plaintext, newHash, salt))
         return false;
 
     return CRYPTO_memcmp(newHash.data(), hash.data(), EVP_MD_size(EVP_sha256())) == 0;

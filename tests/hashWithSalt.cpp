@@ -10,8 +10,8 @@ using namespace std;
 int main() {
     string password = "MyPa$$word!";
     vector<unsigned char> hash; 
-
-    bool ret = Crypto::hashWithSalt(password, hash);
+    vector<unsigned char> salt; // empty salt
+    bool ret = Crypto::hash_with_salt(password, hash, salt);
     if(!ret){
         cout << "Hashing failed" << endl;
         exit(1);

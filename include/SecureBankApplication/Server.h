@@ -73,6 +73,8 @@ private:
 
     // pthread mutex to access the Sessions shared variable
     pthread_mutex_t sessions_mutex;
+    
+    int server_socket;
 };
 
 #endif // SERVER_H

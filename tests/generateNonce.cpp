@@ -6,6 +6,6 @@ using namespace std;
 int main() {
 
     for(int i = 0; i < 20; i++){
-        cout << Crypto::generateNonce(10) << endl;
+        cout << bytesToHex(Crypto::generateNonce(10)) << endl;
     }
 }

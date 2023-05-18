@@ -12,7 +12,7 @@ namespace Crypto
      * @param privateKey
      * @return bool
      */
-    bool generateKeyPair(std::vector<unsigned char> &publicKey, std::vector<unsigned char> &privateKey);
+    bool generate_key_pair(std::vector<unsigned char> &priv_key, std::vector<unsigned char> &pub_key);
 
     /**
      * @brief Encrypts a given message using the AES-128-CBC algorithm with a randomly generated IV.
@@ -62,12 +62,12 @@ namespace Crypto
     std::vector<unsigned char> generateNonce(int length);
 
     // Generate a digital signature for a given message with a given private key. Returns the number of bytes in the signature, or a negative value if an error occurred.
-    int generateSignature(const std::vector<unsigned char> &privateKey, const std::string &message, std::vector<unsigned char> &signature);
+    int generate_signature(const std::vector<unsigned char> &privateKey, const std::string &message, std::vector<unsigned char> &signature);
 
     // Verify a digital signature for a given message with a given public key. Returns true if the signature is valid, false otherwise.
-    bool verifySignature(const std::vector<unsigned char> &publicKey, const std::string &message, const std::vector<unsigned char> &signature);
+    bool verify_signature(const std::string &message, const std::vector<unsigned char> &signature, const std::vector<unsigned char> &pub_key);
 
-    bool hashWithSalt(const std::string &plaintext, std::vector<unsigned char> &saltedHash, std::vector<unsigned char> salt);
+    bool hash_with_salt(const std::string &plaintext, std::vector<unsigned char> &saltedHash, std::vector<unsigned char> salt);
 
     bool verifyHash(const std::string &plaintext, const std::vector<unsigned char> &hash);
 

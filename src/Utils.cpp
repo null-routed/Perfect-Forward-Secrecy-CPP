@@ -10,13 +10,13 @@
 
 using namespace std;
 
-string serializeMessage(const Message &toSerialize)
+string serialize_message(const Message &toSerialize)
 {
     string sm = to_string(toSerialize.command) + "|" + toSerialize.nonce + "|" + toSerialize.content + "|" + toSerialize.hmac;
     return sm;
 }
 
-Message deserializeMessage(const string &serialized)
+Message deserialize_message(const string &serialized)
 {
     Message msg;
 
@@ -33,7 +33,7 @@ Message deserializeMessage(const string &serialized)
     return msg;
 }
 
-vector<char> serializeHeader(const Header& header) 
+vector<unsigned char> serialize_header(const Header& header) 
 {
     vector<char> serialized(sizeof(Header));
     memcpy(serialized.data(), &header, sizeof(Header));
@@ -41,7 +41,7 @@ vector<char> serializeHeader(const Header& header)
     return serialized;
 }
 
-Header deserializeHeader(const char* buffer) {
+Header deserialize_header(const unsigned char* buffer) {
     Header header;
     memcpy(&header, buffer, sizeof(header));
     header.length = ntohl(header.length);
@@ -49,36 +49,36 @@ Header deserializeHeader(const char* buffer) {
     return header;
 }
 
-string bytesToHex(const vector<unsigned char> &bytes)
+string bytes_to_hex(const vector<unsigned char> &bytes)
 {
     string hex;
     hex.reserve(bytes.size() * 2);
-    const char *hexDigits = "0123456789ABCDEF";
+    const char *hex_digits = "0123456789ABCDEF";
     for (size_t i = 0; i < bytes.size(); ++i)
     {
         unsigned char byte = bytes[i];
         // Shifting the byte of 4 positions to encode the 4 most significant bits
-        hex.push_back(hexDigits[byte >> 4]);
+        hex.push_back(hex_digits[byte >> 4]);
         // Masking the byte with 15 (0x0F) to encode the 4 least significant bits
-        hex.push_back(hexDigits[byte & 15]);
+        hex.push_back(hex_digits[byte & 15]);
     }
     return hex;
 }
 
-vector<unsigned char> hexToBytes(const string &hex)
+vector<unsigned char> hex_to_bytes(const string &hex)
 {
     vector<unsigned char> bytes;
     bytes.reserve(hex.size() / 2);
     for (size_t i = 0; i < hex.size(); i += 2)
     {
         // Using two hex char to build a byte
-        unsigned char byte = (hexDigitToValue(hex[i]) << 4) | hexDigitToValue(hex[i + 1]);
+        unsigned char byte = (hex_digit_to_value(hex[i]) << 4) | hex_digit_to_value(hex[i + 1]);
         bytes.push_back(byte);
     }
     return bytes;
 }
 
-unsigned char hexDigitToValue(char digit)
+unsigned char hex_digit_to_value(char digit)
 {
     if ('0' <= digit && digit <= '9')
         return digit - '0';
