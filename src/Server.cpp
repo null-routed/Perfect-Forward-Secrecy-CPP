@@ -120,15 +120,29 @@ Message Server::generate_server_hello(string clientNonce)
     Message.content = bytes_to_hex(tmp_public_key) + "-" + Crypto::generate_signature(clientNonce + bytes_to_hex(tmp_public_key)) + "-" + serializedCERTIFICATE
 }
 
-int Server::send_with_header(int socket, const vector<unsigned char> &byte_array)
+int Server::send_with_header(int socket, const vector<unsigned char> &data_buffer, uint32_t sender)
 {
-
     Header header;
-    header.sender = 0;
-    header.length = byte_array.size();
+    header.length = data.size();
+    header.sender = sender;
+    vector<unsigned char> header_buffer = serialize_header(header);
+
+    int ret = send(socket, header_buffer.data(), header_buffer.size(), 0);
+    if (ret <= 0)
+    {
+        return -1;
+    }
+
+    ret = send(socket, data.data(), data.size(), 0);
+    if (ret <= 0)
+    {
+        return -1;
+    }
+
+    return ret;
 }
 
-vector<unsigned char> Server::recv_with_header(int socket)
+int Server::recv_with_header(int socket, vector<unsigned char> &data_buffer, Header &header)
 {
     vector<unsigned char> header_buffer(HEADER_SIZE);
     int ret = recv(socket, header_buffer.data(), HEADER_SIZE, 0);
@@ -137,9 +151,9 @@ vector<unsigned char> Server::recv_with_header(int socket)
         return -1;
     }
 
-    Header header = deserialize_header(header_buffer.data());
+    header = deserialize_header(header_buffer.data());
 
-    vector<unsigned char> data_buffer(header.length);
+    data_buffer.resize(header.length);
     vector<unsigned char> tmp_buffer(MAX_BUFFER_SIZE);
     int recv_data = 0;
 
@@ -151,17 +165,32 @@ vector<unsigned char> Server::recv_with_header(int socket)
             return -1;
         }
         recv_data += ret;
-        // copy the temp buffer in the data buffer, then execute the recv again if necessary
-        copy(tmp_buffer.begin(), tmp_buffer.begin() + ret, data_buffer.begin() + recv_data);
+        copy(tmp_buffer.begin(), tmp_buffer.begin() + ret, data_buffer.begin() + recv_data - ret);
     }
 
-    return data_buffer;
+    return recv_data;
+}
+
+string Server::generate_session()
+{
+    string session_id;
+    do {
+        session_id = byte_to_hex(Crypto::generate_nonce(8));
+    } while(sessions.find(sessionId) != sessions.end())
+
+    Session session;
+    session.last_ping = chrono::steady_clock::now();
+    sessions[session_id] = session;
+
+    return session_id;
 }
 
 void Server::handle_client_connection(int new_socket)
 {
-    Message message;
-    if (recv_with_header(new_socket, message) == -1)
+    vector<unsigned char> msg_buff;
+    Message msg;
+    Header msg_header;
+    if (recv_with_header(new_socket, msg_buff, msg_header) == -1)
     {
         return;
     }
@@ -172,12 +201,11 @@ void Server::handle_client_connection(int new_socket)
     }
     else
     {
-        string stringified_data(data_buffer.begin(), data_buffer.end());
-        message = deserialize_message(stringified_data);
+        msg = deserialize_message(string(msg_buff.begin(), msg_buff.end()))
         if (message.command == CLIENT_HELLO)
         {
-            int session_id = Server::generate_session();
-            Server::send_with_header(new_socket, serialized_message);
+            string session_id = Server::generate_session();
+            Message server_hello_msg = Server::generate_server_hello(message.session_id);
         }
         else
         {

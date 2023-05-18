@@ -36,7 +36,7 @@ Message deserialize_message(const string &serialized)
 vector<unsigned char> serialize_header(Header header) 
 {
     header.length = htonl(header.length);
-    header.sender = htonl(header.sender);
+    header.sender = htonl(header.sender)
     vector<char> serialized(sizeof(Header));
     memcpy(serialized.data(), &header, sizeof(Header));
 

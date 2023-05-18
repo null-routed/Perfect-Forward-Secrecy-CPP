@@ -23,7 +23,7 @@ struct User
 struct Session
 {
     std::vector<unsigned char> eph_priv_key;
-    std::vector<unsgined char> eph_pub_key;
+    std::vector<unsigned char> eph_pub_key;
     std::vector<unsigned char> hmac_session_key;
     std::vector<unsigned char> aes_session_key;
     std::vector<std::string> session_nonces;
