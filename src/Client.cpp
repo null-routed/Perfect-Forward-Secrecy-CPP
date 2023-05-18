@@ -7,6 +7,7 @@
 #include <map>
 #include <iostream> 
 #include <vector>
+#include <string>
 
 using namespace std;
 
@@ -46,4 +47,12 @@ Client::connect_with_server()
     if ((status = connect(client_fd, (struct sockaddr*)&server_addres, sizeof(server_addres))) < 0) {
         exit_with_error("[-] Error: Connection Failed \n");
     }
+}
+
+Client::get_input(const vector<unsigned char> &data, const vector<unsigned char> &message)
+{
+    // std::vector<string> data;
+    string temp;
+    std::cin >> temp;
+    data.push_back(temp);
 }
