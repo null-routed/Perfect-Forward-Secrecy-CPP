@@ -12,7 +12,68 @@
 
 using namespace std;
 
-int Crypto::encryptMessage(const vector<unsigned char> &key, string &message, vector<unsigned char> &encryptedMessage)
+int rsa_encrypt(const vector<unsigned char>& pub_key, const string& message, vector<unsigned char>& encrypted)
+{
+    RSA* rsa = RSA_new();
+    BIO* bio = BIO_new_mem_buf(pub_key.data(), (int)pub_key.size());
+
+    if (!PEM_read_bio_RSAPublicKey(bio, &rsa, NULL, NULL))
+    {
+        RSA_free(rsa);
+        BIO_free(bio);
+        return -1;
+    }
+
+    encrypted.resize(RSA_size(rsa));
+
+    unsigned char iv[EVP_MAX_IV_LENGTH];
+    if (RAND_poll() == 0 || RAND_bytes(iv, sizeof(iv)) != 1)
+    {
+        RSA_free(rsa);
+        BIO_free(bio);
+        return -1;
+    }
+
+    int encrypted_length = RSA_public_encrypt(message.size(), (const unsigned char*)message.data(), encrypted.data(), rsa, RSA_PKCS1_OAEP_PADDING);
+
+    RSA_free(rsa);
+    BIO_free(bio);
+
+#pragma optimize("", off)
+    memset(&message[0], 0, message.size());
+#pragma optimize("", on)
+
+    return encrypted_length;
+}
+
+int RSA_decrypt(const vector<unsigned char>& priv_key, const vector<unsigned char>& encrypted, string& message)
+{
+    RSA* rsa = RSA_new();
+    BIO* bio = BIO_new_mem_buf(priv_key.data(), (int)priv_key.size());
+
+    if (!PEM_read_bio_RSAPrivateKey(bio, &rsa, NULL, NULL))
+    {
+        RSA_free(rsa);
+        BIO_free(bio);
+        return -1;
+    }
+
+    vector<unsigned char> decrypted(RSA_size(rsa));
+
+    int decrypted_length = RSA_private_decrypt(encrypted.size(), encrypted.data(), decrypted.data(), rsa, RSA_PKCS1_OAEP_PADDING);
+
+    if (decrypted_length != -1)
+    {
+        message = string(decrypted.begin(), decrypted.begin() + decrypted_length);
+    }
+
+    RSA_free(rsa);
+    BIO_free(bio);
+
+    return decrypted_length;
+}
+
+int Crypto::aes_encrypt(const vector<unsigned char> &key, string &message, vector<unsigned char> &encryptedMessage)
 {
 
     const EVP_CIPHER *cipher = EVP_aes_128_cbc();
@@ -143,7 +204,7 @@ bool Crypto::verifyHMAC(const vector<unsigned char> &key, const string &message,
     return result;
 }
 
-int Crypto::decryptMessage(const vector<unsigned char> &key, const vector<unsigned char> &encryptedMessage, string &decryptedMessage)
+int Crypto::aes_decrypt(const vector<unsigned char> &key, const vector<unsigned char> &encryptedMessage, string &decryptedMessage)
 {
     const EVP_CIPHER *cipher = EVP_aes_128_cbc();
     int iv_length = EVP_CIPHER_iv_length(cipher);

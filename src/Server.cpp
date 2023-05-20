@@ -109,15 +109,13 @@ void Server::start_server()
     }
 }
 
-Message Server::generate_server_hello(string clientNonce)
+Message Server::generate_server_hello(string clientNonce, string session_id)
 {
-    vector<unsigned char> tmp_private_key;
-    vector<unsigned char> tmp_public_key;
-    Crypto::generate_key_pair(tmp_private_key, tmp_public_key);
+    Session session = sessions.find(session_id);
     Message server_hello;
     Message.command = SERVER_HELLO;
     Message.nonce = "";
-    Message.content = bytes_to_hex(tmp_public_key) + "-" + Crypto::generate_signature(clientNonce + bytes_to_hex(tmp_public_key)) + "-" + serializedCERTIFICATE
+    Message.content = bytes_to_hex(session.eph_pub_key) + "-" + Crypto::generate_signature(clientNonce + bytes_to_hex(session.eph_pub_key)) + "-" + serializedCERTIFICATE
 }
 
 int Server::send_with_header(int socket, const vector<unsigned char> &data_buffer, uint32_t sender)
@@ -176,9 +174,10 @@ string Server::generate_session()
     string session_id;
     do {
         session_id = byte_to_hex(Crypto::generate_nonce(8));
-    } while(sessions.find(sessionId) != sessions.end())
+    } while(sessions.find(session_id) != sessions.end())
 
     Session session;
+    Crypto::generate_key_pair(session.eph_priv_key, session.eph_pub_key);
     session.last_ping = chrono::steady_clock::now();
     sessions[session_id] = session;
 
@@ -205,7 +204,9 @@ void Server::handle_client_connection(int new_socket)
         if (message.command == CLIENT_HELLO)
         {
             string session_id = Server::generate_session();
-            Message server_hello_msg = Server::generate_server_hello(message.session_id);
+            string msg_string = serialize_message(Server::generate_server_hello(message.session_id));
+            
+            Server::send_with_header(new_socket, )
         }
         else
         {
