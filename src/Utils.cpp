@@ -93,3 +93,11 @@ void exit_with_error(const string &error)
     cerr << error << endl;
     exit(1);
 }
+
+void print_vector(vector<unsigned char>& text)
+{
+    for (unsigned char c : text) {
+        std::cout << c;
+    }
+    std::cout << std::endl;
+}

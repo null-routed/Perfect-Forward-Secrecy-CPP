@@ -21,11 +21,13 @@ public:
 
     void receiv_message();
 
-    void get_input(const vector<unsigned char> &key);
+    void ask_for_input();
+
+    void get_input(const vector<unsigned char>& data);
 
     int length_of_message(const vector<unsigned char> &message);
 
-    void create_header();
+    void create_header(const vector<unsigned char> &message, const vector<unsigned char> &header);
 
     void concatenate_message_and_header(const vector<unsigned char> &header, const vector<unsigned char> &message);
 };

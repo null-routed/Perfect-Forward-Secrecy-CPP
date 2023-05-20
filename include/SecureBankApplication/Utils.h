@@ -30,3 +30,5 @@ std::string bytesToHex(const std::vector<unsigned char> &bytes);
 std::vector<unsigned char> hexToBytes(const std::string &hex);
 unsigned char hexDigitToValue(char digit);
 void exit_with_error(const std::string &error);
+
+void print_vector(const std::vector<unsigned char>& text);

@@ -27,9 +27,8 @@ Client::connect_with_server()
     // Create socket
     int s0 = socket(AF_INET, SOCK_STREAM, 0);
     if (s0 < 0)
-    {
-        std::cerr << "Error: failed to create clients socket" << strerror(errno) << std::endl;
-        exit(1);
+    {   
+        exit_with_error("[-] Error: failed to create clients socket\n");
     }
  
     // Fill in server IP address
@@ -49,10 +48,25 @@ Client::connect_with_server()
     }
 }
 
-Client::get_input(const vector<unsigned char> &data, const vector<unsigned char> &message)
+Client::get_input(std::vector<unsigned char>& data)
 {
-    // std::vector<string> data;
-    string temp;
-    std::cin >> temp;
-    data.push_back(temp);
+    std::string input;
+    std::cin >> input;
+
+    // Clear the vector before reading new input
+    inputVector.clear();
+
+    // Convert each character of the input string to unsigned char
+    for (char c : input) {
+        data.push_back(static_cast<unsigned char>(c));
+    }
+}
+
+Client::create_header(const Message &toSerialize, const vector<unsigned char> &header, uint32_t sender)
+{
+    Header header;
+    serialized_message = serialize_message(const Message &toSerialize);
+    header.length = serialize_message.size();
+    header.sender = sender;
+    return header;
 }
