@@ -17,24 +17,22 @@ public:
 
     void disconnect_with_server();
 
-    void send_message();
+    // void get_input(const vector<unsigned char>& data);
 
-    void receiv_message();
+    void display_options();
 
-    void ask_for_input();
+    Header create_header(const vector<unsigned char> &message, const vector<unsigned char> &header);
 
-    void get_input(const vector<unsigned char>& data);
+    Message create_message(int option);
 
-    int length_of_message(const vector<unsigned char> &message);
-
-    void create_header(const vector<unsigned char> &message, const vector<unsigned char> &header);
-
-    void concatenate_message_and_header(const vector<unsigned char> &header, const vector<unsigned char> &message);
+    void get_user_details();
 };
 
 // Command = login
 // nonce =dfadhfauidhfa
 // username|password
+
+// is username and passowrd called content?
 
 // hmac(login-dfadhfauidhfa-username|password)
 // enc(hmac)

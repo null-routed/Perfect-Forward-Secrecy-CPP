@@ -48,25 +48,48 @@ Client::connect_with_server()
     }
 }
 
-Client::get_input(std::vector<unsigned char>& data)
-{
-    std::string input;
-    std::cin >> input;
+// Client::get_input(std::vector<unsigned char>& data)
+// {
+//     std::string input;
+//     std::cin >> input;
 
-    // Clear the vector before reading new input
-    inputVector.clear();
+//     // Clear the vector before reading new input
+//     inputVector.clear();
 
-    // Convert each character of the input string to unsigned char
-    for (char c : input) {
-        data.push_back(static_cast<unsigned char>(c));
-    }
-}
+//     // Convert each character of the input string to unsigned char
+//     for (char c : input) {
+//         data.push_back(static_cast<unsigned char>(c));
+//     }
+// }
 
-Client::create_header(const Message &toSerialize, const vector<unsigned char> &header, uint32_t sender)
+Client::create_header(const Message &toSerialize, uint32_t sender)
 {
     Header header;
-    serialized_message = serialize_message(const Message &toSerialize);
+    vector<unsigned char> serialized_message = serialize_message(const Message &toSerialize);
     header.length = serialize_message.size();
     header.sender = sender;
     return header;
+}
+
+Client::create_message(int option, const vector<unsigned char> &header, uint32_t sender)
+{
+    int nonce_length = 16; //???
+    Message message;
+    message.option = option;
+    message.nonce = Crypto::generateNonce(nonce_length);
+    // message.content = What is content when we ask for balance
+    // message.hmac = Crypto::generateHMAC(); option, nonce and message as content?
+    return message;
+}
+
+Client::display_options(bool loged_in) {
+    std::cout << "Choose one of the options:" << std::endl;
+    if (loged_in)
+    {
+        std::cout << "0. Create account" << std::endl;
+        std::cout << "1. Log in" << std::endl;
+    }
+    std::cout << "2. Make transfer" << std::endl;
+    std::cout << "3. Check balance" << std::endl;
+    std::cout << "4. Show history of transfers" << std::endl;
 }
