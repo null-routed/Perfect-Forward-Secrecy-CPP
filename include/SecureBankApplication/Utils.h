@@ -26,9 +26,9 @@ std::vector<char> serializeHeader(const Header& header);
 
 Header deserializeHeader(const char* buffer);
 
-std::string bytesToHex(const std::vector<unsigned char> &bytes);
-std::vector<unsigned char> hexToBytes(const std::string &hex);
-unsigned char hexDigitToValue(char digit);
+std::string bytes_to_hex(const std::vector<unsigned char> &bytes);
+std::vector<unsigned char> hex_to_bytes(const std::string &hex);
+unsigned char hex_digit_to_value(char digit);
 void exit_with_error(const std::string &error);
 
 void print_vector(const std::vector<unsigned char>& text);

@@ -23,7 +23,7 @@ namespace Crypto
      * @param encryptedMessage The vector that stores the encrypted data
      * @return int, length of the encryptedMessage, or -1 on failure.
      */
-    int encryptMessage(const std::vector<unsigned char> &key, std::string &message, std::vector<unsigned char> &encryptedMessage);
+    int aes_encrypt(const std::vector<unsigned char> &key, std::string &message, std::vector<unsigned char> &encryptedMessage);
 
     /**
      * @brief Decrypts a given message using the AES-128-CBC algorithm.
@@ -33,7 +33,7 @@ namespace Crypto
      * @param decryptedMessage 
      * @return int, length of the decryptedMessage, or -1 on failure.
      */
-    int decryptMessage(const std::vector<unsigned char> &key, const std::vector<unsigned char> &encryptedMessage, std::string &decryptedMessage);
+    int aes_decrypt(const std::vector<unsigned char> &key, const std::vector<unsigned char> &encryptedMessage, std::string &decryptedMessage);
 
     /**
      * @brief Generate an HMAC for a given message with a given key. Returns the number of bytes in the HMAC, or a negative value if an error occurred.

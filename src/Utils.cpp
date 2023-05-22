@@ -70,6 +70,18 @@ X509 *deserialize_certificate(const vector<unsigned char> &serialized)
     return cert;
 }
 
+string serialize_transfer(const Transfer &transfer)
+{
+    string st = transfer.sender + "|" + transfer.receiver + "|" + to_string(transfer.amount) + "|" + to_string(transfer.timestamp);
+    return st;
+}
+
+string serialize_message_for_hmac(const Message &toSerialize)
+{
+    string sm = to_string(toSerialize.command) + "|" + toSerialize.nonce + "|" + toSerialize.content;
+    return sm;
+}
+
 string serialize_message(const Message &toSerialize)
 {
     string sm = to_string(toSerialize.command) + "|" + toSerialize.nonce + "|" + toSerialize.content + "|" + toSerialize.hmac;
@@ -96,9 +108,8 @@ Message deserialize_message(const string &serialized)
 vector<unsigned char> serialize_header(Header header)
 {
     header.length = htonl(header.length);
-    header.sender = htonl(header.sender)
-        vector<char>
-            serialized(sizeof(Header));
+    header.sender = htonl(header.sender);
+    vector<unsigned char> serialized(sizeof(Header));
     memcpy(serialized.data(), &header, sizeof(Header));
 
     return serialized;
@@ -163,4 +174,62 @@ void print_vector(vector<unsigned char> &text)
         cout << c;
     }
     cout << endl;
+}
+
+void write_user_data(const string& file_path, const User& user_data, const vector<unsigned char> &enc_key) {
+    ofstream file(file_path);
+    vector<unsigned char> enc_buffer; 
+    if (file.is_open()) {
+        file << user_data.username << '|'
+             << user_data.account_id << '|'
+             << to_string(user_data.balance) << '|'
+             << user_data.hashed_password << "\n";
+
+        for (const Transfer& transfer : user_data.transfer_history) {
+            string serialized_transfer = serialize_transfer(transfer);
+            Crypto::aes_encrypt(enc_key, serialized_transfer, enc_buffer);
+            file << bytes_to_hex(enc_buffer) << "\n";
+        }
+
+        file.close();
+    } else {
+        cerr << "Failed to open file: " << file_path << endl;
+    }
+}
+
+User load_user_data(const string& file_path, const vector<unsigned char> &enc_key) {
+    ifstream file(file_path);
+    User user_data;
+
+    if (file.is_open()) {
+        string line;
+        if (getline(file, line)) {
+            stringstream ss(line);
+            getline(ss, user_data.username, '|');
+            getline(ss, user_data.account_id, '|');
+            ss >> user_data.balance;
+            ss.ignore();
+            getline(ss, user_data.hashed_password);
+
+            string enc_transfer_data;
+            while (getline(file, enc_transfer_data)) {
+                string transfer_data;
+                Crypto::aes_decrypt(enc_key, hex_to_bytes(enc_transfer_data), transfer_data);
+                stringstream ts(transfer_data);
+                Transfer transfer;
+                getline(ts, transfer.sender, '|');
+                getline(ts, transfer.receiver, '|');
+                ts >> transfer.amount;
+                ts.ignore();
+                ts >> transfer.timestamp;
+                user_data.transfer_history.push_back(transfer);
+                transfer_data.clear();
+            }
+        }
+        file.close();
+    } else {
+        cerr << "Failed to open file: " << file_path << endl;
+    }
+
+    return user_data;
 }

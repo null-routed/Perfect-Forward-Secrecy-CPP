@@ -12,7 +12,7 @@
 
 using namespace std;
 
-int rsa_encrypt(const vector<unsigned char>& pub_key, const string& message, vector<unsigned char>& encrypted)
+int rsa_encrypt(const vector<unsigned char>& pub_key, string& message, vector<unsigned char>& encrypted)
 {
     RSA* rsa = RSA_new();
     BIO* bio = BIO_new_mem_buf(pub_key.data(), (int)pub_key.size());
@@ -39,9 +39,7 @@ int rsa_encrypt(const vector<unsigned char>& pub_key, const string& message, vec
     RSA_free(rsa);
     BIO_free(bio);
 
-#pragma optimize("", off)
-    memset(&message[0], 0, message.size());
-#pragma optimize("", on)
+    message.clear();
 
     return encrypted_length;
 }
@@ -132,9 +130,7 @@ int Crypto::aes_encrypt(const vector<unsigned char> &key, string &message, vecto
     encryptedMessage.resize(iv_length + outlen + finallen);
 
     EVP_CIPHER_CTX_free(ctx);
-#pragma optimize("", off)
-    memset(&message[0], 0, message.size());
-#pragma optimize("", on)
+    message.clear();
 
     return encryptedMessage.size();
 }
@@ -368,7 +364,7 @@ bool Crypto::hash_with_salt(const string &plaintext, vector<unsigned char> &salt
 {
     salt = salt.empty() ? Crypto::generateNonce(Constants::SALT_SIZE) : salt;
 
-    string toHash = bytesToHex(salt) + plaintext;
+    string toHash = bytes_to_hex(salt) + plaintext;
     vector<unsigned char> digest(EVP_MD_size(EVP_sha256()));
     unsigned int digestlen;
 

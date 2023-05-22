@@ -15,6 +15,7 @@ using namespace Constants;
 Server::Server()
 {
     pthread_mutex_init(&sessions_mutex, NULL);
+    X509* own_cert = read_certificate_from_pem();
 }
 
 Server::~Server()
@@ -26,8 +27,8 @@ Server::~Server()
 bool Server::destroy_session_keys(Session &sess)
 {
 #pragma optimize("", off)
-    memset(&sess.aes_session_key[0], 0, session.aes_session_key.size()); // can memset fail? If yes, check for result
-    memset(&sess.hmac_session_key[0], 0, session.hmac_session_key.size());
+    memset(sess.aes_key.data(), 0, session.aes_key.size()); // can memset fail? If yes, check for result
+    memset(sess.hmac_key.data(), 0, session.hmac_key.size());
 #pragma optimize("", on)
     return true;
 }
@@ -103,8 +104,9 @@ void Server::start_server()
             cout << "[-] Error on accept" << endl;
             continue;
         }
-
+        pthread_mutex_lock(&sessions_mutex);
         Server::handle_client_connection(new_socket);
+        pthread_mutex_unlock(&sessions_mutex);
         close(new_socket);
     }
 }
@@ -115,7 +117,7 @@ Message Server::generate_server_hello(string clientNonce, string session_id)
     Message server_hello;
     Message.command = SERVER_HELLO;
     Message.nonce = "";
-    Message.content = bytes_to_hex(session.eph_pub_key) + "-" + Crypto::generate_signature(clientNonce + bytes_to_hex(session.eph_pub_key)) + "-" + serializedCERTIFICATE
+    Message.content = bytes_to_hex(session.eph_pub_key) + "-" + Crypto::generate_signature(clientNonce + bytes_to_hex(session.eph_pub_key)) + "-" + bytes_to_hex(serialize_certificate(own_cert));
 }
 
 int Server::send_with_header(int socket, const vector<unsigned char> &data_buffer, uint32_t sender)
@@ -186,27 +188,84 @@ string Server::generate_session()
 
 void Server::handle_client_connection(int new_socket)
 {
-    vector<unsigned char> msg_buff;
+    vector<unsigned char> in_buff;
+    vector<unsigned char> out_buff;
+
+    string msg_string;
     Message msg;
     Header msg_header;
-    if (recv_with_header(new_socket, msg_buff, msg_header) == -1)
+    string session_id;
+
+    Session sess; 
+    
+    if (recv_with_header(new_socket, in_buff, msg_header) == -1)
     {
         return;
     }
 
     if (header.sender)
     {
-        // if sender is not null, the sender is already in a session
+        session_id = to_string(header.sender);
+        unordered_map<string, Session>::iterator it = sessions.find(session_id);
+        if(it == sessions.end()){
+            // handle non-existing session_id;
+            return;
+        }
+        sess = it->second;
+        Crypto::aes_decrypt(sess.aes_key, in_buff, msg_string);
+        msg = deserialize_message(msg_string);
+
+        // checking for a valid hmac and for replay attacks
+        if(!Crypto::verify_hmac(sess.hmac_key, serialize_message_for_hmac(msg), hex_to_bytes(msg.hmac)) || find(sess.session_nonces.begin(), sess.session_nonces.end(), msg.nonce) != sess.session_nonces.end()){
+            // handle un-authorized access
+            return;
+        }
+        switch(msg.command){
+            case LOGIN:
+
+                break;
+            case TRANSFER: 
+                break;
+            case GET_BALANCE:
+                break;
+            case GET_TRANSFERS:
+                break;
+            default:
+
+                break;
+
+        }
     }
     else
     {
-        msg = deserialize_message(string(msg_buff.begin(), msg_buff.end()))
+        msg = deserialize_message(string(in_buff.begin(), in_buff.end()));
         if (message.command == CLIENT_HELLO)
         {
-            string session_id = Server::generate_session();
-            string msg_string = serialize_message(Server::generate_server_hello(message.session_id));
-            
-            Server::send_with_header(new_socket, )
+            session_id = Server::generate_session();
+            sess = sessions.find(session_id)->second;
+            msg_string = serialize_message(Server::generate_server_hello(message.session_id));
+            out_buff(msg_string.begin(), msg_string.end());
+            Server::send_with_header(new_socket, out_buff, 0);
+
+            Server::recv_with_header(new_socket, in_buff, msg_header);
+            Crypto::RSA_decrypt(sess.eph_priv_key,  in_buff, msg_string);
+            msg = deserialize_message(msg_string);
+
+            // saving the key in the session struct and cleaning the string to make sure no sensitive data is stored 
+            size_t pos = input.find('-');
+            sess.aes_key = hex_to_bytes(msg.content.substr(0, pos));
+            sess.hmac_key = hex_to_bytes(msg.content.substr(pos + 1)):
+
+            msg.content.clear();
+            memset(sess.eph_pub_key.data(), 0, sess.eph_pub_key.size());
+            memset(sess.eph_priv_key.data(), 0, sess.eph_priv_key.size());
+            sess.eph_priv_key.resize(0);
+            sess.eph_pub_key.resize(0);
+
+            Message server_ok = {SERVER_OK, "", session_id, ""};
+            msg_string = serialize_message(server_ok);
+            Crypto::aes_encrypt(sess.aes_key, msg_string, out_buff);
+            Server::send_with_header(new_socket, out_buff,0);
         }
         else
         {

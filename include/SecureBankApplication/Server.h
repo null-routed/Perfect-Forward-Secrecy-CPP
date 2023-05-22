@@ -10,22 +10,13 @@
 #include <openssl/aes.h>
 #include <chrono>
 #include <pthread.h>
-// User data structure
-struct User
-{
-    std::string username;
-    std::string account_id;
-    double balance;
-    std::string hashed_password;
-    std::vector<Transfer> transfer_history;
-};
 
 struct Session
 {
     std::vector<unsigned char> eph_priv_key;
     std::vector<unsigned char> eph_pub_key;
-    std::vector<unsigned char> hmac_session_key;
-    std::vector<unsigned char> aes_session_key;
+    std::vector<unsigned char> hmac_key;
+    std::vector<unsigned char> aes_key;
     std::vector<std::string> session_nonces;
     std::chrono::steady_clock::time_point last_ping;
 };
