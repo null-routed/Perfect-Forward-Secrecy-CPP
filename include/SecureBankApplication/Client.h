@@ -2,14 +2,16 @@
 #define CLIENT_H
 
 #include <vector>
+#include "Transaction.h"
+// #include "Constants.h"
 
 class Client
 {
 public:
 
-    void Client();
+    Client();
 
-    void ~Client();
+    ~Client();
 
     // void start_client();
 
@@ -19,14 +21,16 @@ public:
 
     // void get_input(const vector<unsigned char>& data);
 
-    void display_options();
+    void display_options(bool loged_in);
 
-    Header create_header(const vector<unsigned char> &message, const vector<unsigned char> &header);
+    Header create_header(const std::vector<unsigned char> &message, const std::vector<unsigned char> &header);
 
     Message create_message(int option);
 
     void get_user_details();
 };
+
+#endif // CLIENT_H
 
 // Command = login
 // nonce =dfadhfauidhfa

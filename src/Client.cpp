@@ -48,6 +48,77 @@ Client::connect_with_server()
     }
 }
 
+Client::handle_server_connection(bool loged_in)
+{
+    int option;
+        Client::display_options(loged_in);
+        std::cout << "Enter the option number: ";
+        std::cin >> option;
+        
+        switch (option)
+        {
+            case Constants::CLIENT_HELLO:
+                // what do we need to create account?
+                // username and password?
+
+                if (loged_in)
+                {
+                    std::cout << "Invalid option selected." << std::endl;
+                    break;
+                }
+                loged_in = true;
+                break;
+
+            case Constants::LOGIN:
+                if (loged_in)
+                {
+                    std::cout << "Invalid option selected." << std::endl;
+                    break;
+                }
+                // get username and password
+
+                loged_in = true;
+                break;
+
+            case Constants::TRANSFER:
+
+                break;
+            
+            case Constants::GET_BALANCE:
+                {
+                    std::vector<unsigned char> key;
+                    std::vector<unsigned char> content;
+                    std::vector<unsigned char> hmac;
+
+                    vector<unsigned char> nonce = Crypto::generateNonce(Constants::NONCE_LENGTH);
+
+                    // Crypto::generateHMAC(key, content, hmac);
+
+                    Message message = Client::create_message(Constants::GET_BALANCE);
+                    Header header = Client::create_header(message, sender);
+                    // send header
+                    // send message
+                    // receiv balance
+                }
+                break;
+
+            case Constants::GET_TRANSFER_HISTORY:
+                
+                break;
+
+            default:
+                std::cout << "Invalid option selected." << std::endl;
+            }
+}
+
+Client::client_hello()
+{
+    Message hello_msg;
+    hello_mng.command = Constants::CLIENT_HELLO;
+    hello_mng.content = "R";
+    
+}
+
 // Client::get_input(std::vector<unsigned char>& data)
 // {
 //     std::string input;
@@ -86,7 +157,7 @@ Client::display_options(bool loged_in) {
     std::cout << "Choose one of the options:" << std::endl;
     if (loged_in)
     {
-        std::cout << "0. Create account" << std::endl;
+        // std::cout << "0. Create account" << std::endl;
         std::cout << "1. Log in" << std::endl;
     }
     std::cout << "2. Make transfer" << std::endl;

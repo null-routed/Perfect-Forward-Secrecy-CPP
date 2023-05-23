@@ -7,6 +7,7 @@ namespace Constants {
     const int SALT_SIZE = 16;
     const int MAX_BUFFER_SIZE = 4096; // Maximum buffer size for recv
 
+    const int NONCE_LENGTH = 16;
     const int USER_ID_LENGTH = 16; // User ID length, not sure if necessary
     const int SERVER_PORT = 8080; // The port the server will use to handle incoming connections
 

@@ -239,7 +239,7 @@ void Server::handle_client_connection(int new_socket)
     else
     {
         msg = deserialize_message(string(in_buff.begin(), in_buff.end()));
-        if (message.command == CLIENT_HELLO)
+        if (message.command == CLIENT_HELLO) // not msg.command?
         {
             session_id = Server::generate_session();
             sess = sessions.find(session_id)->second;
