@@ -215,8 +215,10 @@ void Server::handle_client_connection(int new_socket)
         unordered_map<string, Session>::iterator it = sessions.find(session_id);
         if (it == sessions.end())
         {
-            out_msg.command = INVALID_SESSION;
-            
+            out_msg.command = INVALID_PARAMS;
+            out_msg_string = serialize_message(out_msg);
+            out_buff(out_msg_string.begin(), out_msg_string.end());
+            Server::send_with_header(new_socket, out_buff, 0);
             return;
         }
         sess = it->second;
@@ -227,8 +229,8 @@ void Server::handle_client_connection(int new_socket)
         // checking for a valid hmac and for replay attacks
         if (!Crypto::verify_hmac(sess.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || find(sess.session_nonces.begin(), sess.session_nonces.end(), in_msg.nonce) != sess.session_nonces.end())
         {
-            msg.command = 0;
-            return;
+            // invalidating the session
+            msg.command = -1;
         }
 
         out_msg.nonce = in_msg.nonce;
@@ -356,6 +358,10 @@ void Server::handle_client_connection(int new_socket)
         }
         else
         {
+            out_msg.command = INVALID_PARAMS;
+            out_msg_string = serialize_message(out_msg);
+            out_buff(out_msg_string.begin(), out_msg_string.end());
+            Server::send_with_header(new_socket, out_buff, 0);
         }
     }
 }
