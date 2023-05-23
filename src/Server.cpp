@@ -15,7 +15,7 @@ using namespace Constants;
 Server::Server()
 {
     pthread_mutex_init(&sessions_mutex, NULL);
-    X509* own_cert = read_certificate_from_pem();
+    X509 *own_cert = read_certificate_from_pem();
 }
 
 Server::~Server()
@@ -174,31 +174,37 @@ int Server::recv_with_header(int socket, vector<unsigned char> &data_buffer, Hea
 string Server::generate_session()
 {
     string session_id;
-    do {
+    do
+    {
         session_id = byte_to_hex(Crypto::generate_nonce(8));
-    } while(sessions.find(session_id) != sessions.end())
+    } while (sessions.find(session_id) != sessions.end());
 
     Session session;
     Crypto::generate_key_pair(session.eph_priv_key, session.eph_pub_key);
     session.last_ping = chrono::steady_clock::now();
     sessions[session_id] = session;
+    sessions[session_id].user = "";
 
     return session_id;
 }
 
 void Server::handle_client_connection(int new_socket)
 {
+    bool must_delete = false;
     vector<unsigned char> in_buff;
     vector<unsigned char> out_buff;
 
-    string msg_string;
-    Message msg;
-    Header msg_header;
-    string session_id;
+    string out_msg_string;
+    Message out_msg;
 
-    Session sess; 
-    
-    if (recv_with_header(new_socket, in_buff, msg_header) == -1)
+    string in_msg_string;
+    Message in_msg;
+    Header in_msg_header;
+
+    string session_id;
+    Session sess;
+
+    if (recv_with_header(new_socket, in_buff, in_msg_header) == -1)
     {
         return;
     }
@@ -207,65 +213,146 @@ void Server::handle_client_connection(int new_socket)
     {
         session_id = to_string(header.sender);
         unordered_map<string, Session>::iterator it = sessions.find(session_id);
-        if(it == sessions.end()){
-            // handle non-existing session_id;
+        if (it == sessions.end())
+        {
+            out_msg.command = INVALID_SESSION;
+            
             return;
         }
         sess = it->second;
-        Crypto::aes_decrypt(sess.aes_key, in_buff, msg_string);
-        msg = deserialize_message(msg_string);
+        sess.last_ping = chrono::steady_clock::now();
+        Crypto::aes_decrypt(sess.aes_key, in_buff, in_msg_string);
+        in_msg = deserialize_message(in_msg_string);
 
         // checking for a valid hmac and for replay attacks
-        if(!Crypto::verify_hmac(sess.hmac_key, serialize_message_for_hmac(msg), hex_to_bytes(msg.hmac)) || find(sess.session_nonces.begin(), sess.session_nonces.end(), msg.nonce) != sess.session_nonces.end()){
-            // handle un-authorized access
+        if (!Crypto::verify_hmac(sess.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || find(sess.session_nonces.begin(), sess.session_nonces.end(), in_msg.nonce) != sess.session_nonces.end())
+        {
+            msg.command = 0;
             return;
         }
-        switch(msg.command){
-            case LOGIN:
 
-                break;
-            case TRANSFER: 
-                break;
-            case GET_BALANCE:
-                break;
-            case GET_TRANSFERS:
-                break;
-            default:
+        out_msg.nonce = in_msg.nonce;
+        out_msg.command = SUCCESS;
+        switch (in_msg.command)
+        {
+        case LOGIN:
 
-                break;
+            out_msg.content = "";
+            size_t pos = msg.content.find('-');
+            string username = in_msg.content.substr(0, pos);
+            string password = in_msg.content.substr(pos + 1);
 
+            User usr = load_user_data(BASE_PATH + username, enc_key);
+            if (Crypto::veryify_hash(password, hex_to_bytes(usr.password)))
+            {
+                sess.user = username;
+            }
+            else
+            {
+                out_msg.command = INVALID_CREDENTIALS;
+            }
+            password.clear();
+            break;
+
+        case TRANSFER:
+            if (sess.user == "")
+            {
+                out_msg.command = UNAUTHORIZED;
+                break;
+            }
+            out_msg.content = "";
+            size_t pos = msg.content.find('-');
+            double amount = stod(in_msg.content.substr(0, pos));
+            string receiver_str = in_msg.content.substr(pos + 1);
+            User sender = load_user_data(BASE_PATH + sess.user, enc_key);
+            User receiver = load_user_data(BASE_PATH + receiver_str, enc_key);
+
+            if (amount <= 0 || sender.balance < amount)
+            {
+                out_msg.command = INVALID_AMOUNT;
+            }
+            else
+            {
+                sender.balance -= amount;
+                receiver.balance += amount;
+                write_user_data(BASE_PATH + sess.user, enc_key);
+                write_user_data(BASE_PATH + receiver_str, enc_key)
+            }
+
+            break;
+        case GET_BALANCE:
+            if (sess.user == "")
+            {
+                out_msg.command = UNAUTHORIZED;
+                break;
+            }
+
+            User usr = load_user_data(BASE_PATH + sess.user, enc_key);
+            out_msg.content = to_string(usr.balance);
+
+            break;
+        case GET_TRANSFERS:
+            if (sess.user == "")
+            {
+                out_msg.command = UNAUTHORIZED;
+                break;
+            }
+            User usr = load_user_data(BASE_PATH + sess.user, enc_key);
+
+            for(int i = 0; i < min(MAX_TRANSFERS, usr.transfer_history.size()); i++){
+                out_msg.content += serialize_transfer(usr.transfer_history[usr.transfer_history.size() - i - 1]);
+                if(i + 1 < min(MAX_TRANSFERS, usr.transfer_history.size())) out_msg.content += "|"
+            }
+            break;
+        case CLOSE:
+            must_delete = true;
+            break;
+        default:
+            out_msg.command = INVALID_PARAMS;
+            break;
+        }
+
+        Crypto::generateHMAC(sess.hmac_key, serialize_message_for_hmac(out_msg), out_buff);
+        out_msg.hmac = bytes_to_hex(out_buff);
+
+        Crypto::aes_encrypt(sess.aes_key, serialize_message(out_msg), out_buff);
+        send_with_header(new_socket, out_buff, session_id);
+
+        if(must_delete){
+            Server::destroy_session_keys(sess);
+            sessions.erase(it);
         }
     }
     else
     {
-        msg = deserialize_message(string(in_buff.begin(), in_buff.end()));
-        if (message.command == CLIENT_HELLO) // not msg.command?
+        in_msg = deserialize_message(string(in_buff.begin(), in_buff.end()));
+        if (in_msg.command == CLIENT_HELLO)
         {
+            vector<unsigned char> eph_priv_key;
+            vector<unsigned char> eph_pub_key;
             session_id = Server::generate_session();
             sess = sessions.find(session_id)->second;
-            msg_string = serialize_message(Server::generate_server_hello(message.session_id));
-            out_buff(msg_string.begin(), msg_string.end());
+            out_msg_string = serialize_message(Server::generate_server_hello(in_msg.content, session_id));
+            out_buff(out_msg_string.begin(), out_msg_string.end());
             Server::send_with_header(new_socket, out_buff, 0);
 
-            Server::recv_with_header(new_socket, in_buff, msg_header);
-            Crypto::RSA_decrypt(sess.eph_priv_key,  in_buff, msg_string);
-            msg = deserialize_message(msg_string);
+            Server::recv_with_header(new_socket, in_buff, in_msg_header);
+            Crypto::RSA_decrypt(eph_priv_key, in_buff, in_msg_string);
+            in_msg = deserialize_message(in_msg_string);
 
-            // saving the key in the session struct and cleaning the string to make sure no sensitive data is stored 
-            size_t pos = input.find('-');
-            sess.aes_key = hex_to_bytes(msg.content.substr(0, pos));
-            sess.hmac_key = hex_to_bytes(msg.content.substr(pos + 1)):
+            // saving the key in the session struct and cleaning the string to make sure no sensitive data is stored
+            size_t pos = msg.content.find('-');
+            sess.aes_key = hex_to_bytes(in_msg.content.substr(0, pos));
+            sess.hmac_key = hex_to_bytes(in_msg.content.substr(pos + 1));
 
-            msg.content.clear();
-            memset(sess.eph_pub_key.data(), 0, sess.eph_pub_key.size());
-            memset(sess.eph_priv_key.data(), 0, sess.eph_priv_key.size());
-            sess.eph_priv_key.resize(0);
-            sess.eph_pub_key.resize(0);
+            in_msg.content.clear();
+            memset(eph_pub_key.data(), 0, eph_pub_key.size());
+            memset(eph_priv_key.data(), 0, eph_priv_key.size());
 
-            Message server_ok = {SERVER_OK, "", session_id, ""};
-            msg_string = serialize_message(server_ok);
-            Crypto::aes_encrypt(sess.aes_key, msg_string, out_buff);
-            Server::send_with_header(new_socket, out_buff,0);
+            out_msg = {SERVER_OK, "", session_id, ""};
+            out_msg_string = serialize_message(out_msg);
+            Crypto::aes_encrypt(sess.aes_key, out_msg_string, out_buff);
+            Server::send_with_header(new_socket, out_buff, session_id);
         }
         else
         {
