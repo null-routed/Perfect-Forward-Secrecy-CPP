@@ -15,11 +15,19 @@ using namespace Constants;
 Server::Server()
 {
     pthread_mutex_init(&sessions_mutex, NULL);
-    X509 *own_cert = read_certificate_from_pem();
+    try
+    {
+        own_cert = read_certificate_from_pem();
+    }
+    catch (const runtime_error &e)
+    {
+        exit_with_error("Could not load certificate");
+    }
 }
 
 Server::~Server()
 {
+    X509_free(own_cert);
     close(server_socket);
     pthread_mutex_destroy(&sessions_mutex);
 }
@@ -37,7 +45,7 @@ void Server::check_expired_sessions()
 {
     while (true)
     {
-        sleep(15);
+        sleep(SLEEP_TIME);
 
         // Locking the muted on the shared variable
         pthread_mutex_lock(&sessions_mutex);
@@ -63,7 +71,6 @@ void Server::check_expired_sessions()
                 ++it;
             }
         }
-
         // releasing the lock
         pthread_mutex_unlock(&sessions_mutex);
     }
@@ -74,22 +81,28 @@ void Server::start_server()
     pthread_t checkThread;
     if (pthread_create(&checkThread, NULL, Server::check_expired_sessions, this))
     {
-        exit_with_error("[-] Could not start thread");
+        exit_with_error("[-] Fatal error while starting thread");
     }
 
     server_socket = socket(PF_INET, SOCK_STREAM, 0);
-
+    if (server_socket == -1)
+    {
+        exit_with_error("[-] Fatal error while allocating socket");
+    }
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
     server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+    {
+        exit_with_error("[-] Fatal error when binding socket");
+    }
 
     if (listen(server_socket, 50) == 0)
         cout << "[+] Listening..." << endl;
     else
-        exit_with_error("[-] Error on listen");
+        exit_with_error("[-] Fatal error on listen");
 
     struct sockaddr_storage server_storage;
     socklen_t addr_size;
@@ -103,6 +116,10 @@ void Server::start_server()
         {
             cout << "[-] Error on accept" << endl;
             continue;
+        }
+        else
+        {
+            cout << "[+] Received new connection " << endl;
         }
         pthread_mutex_lock(&sessions_mutex);
         Server::handle_client_connection(new_socket);
@@ -118,57 +135,6 @@ Message Server::generate_server_hello(string clientNonce, string session_id)
     Message.command = SERVER_HELLO;
     Message.nonce = "";
     Message.content = bytes_to_hex(session.eph_pub_key) + "-" + Crypto::generate_signature(clientNonce + bytes_to_hex(session.eph_pub_key)) + "-" + bytes_to_hex(serialize_certificate(own_cert));
-}
-
-int Server::send_with_header(int socket, const vector<unsigned char> &data_buffer, uint32_t sender)
-{
-    Header header;
-    header.length = data.size();
-    header.sender = sender;
-    vector<unsigned char> header_buffer = serialize_header(header);
-
-    int ret = send(socket, header_buffer.data(), header_buffer.size(), 0);
-    if (ret <= 0)
-    {
-        return -1;
-    }
-
-    ret = send(socket, data.data(), data.size(), 0);
-    if (ret <= 0)
-    {
-        return -1;
-    }
-
-    return ret;
-}
-
-int Server::recv_with_header(int socket, vector<unsigned char> &data_buffer, Header &header)
-{
-    vector<unsigned char> header_buffer(HEADER_SIZE);
-    int ret = recv(socket, header_buffer.data(), HEADER_SIZE, 0);
-    if (ret <= 0)
-    {
-        return -1;
-    }
-
-    header = deserialize_header(header_buffer.data());
-
-    data_buffer.resize(header.length);
-    vector<unsigned char> tmp_buffer(MAX_BUFFER_SIZE);
-    int recv_data = 0;
-
-    while (recv_data < header.length)
-    {
-        ret = recv(socket, tmp_buffer.data(), MAX_BUFFER_SIZE, 0);
-        if (ret <= 0)
-        {
-            return -1;
-        }
-        recv_data += ret;
-        copy(tmp_buffer.begin(), tmp_buffer.begin() + ret, data_buffer.begin() + recv_data - ret);
-    }
-
-    return recv_data;
 }
 
 string Server::generate_session()
@@ -215,7 +181,7 @@ void Server::handle_client_connection(int new_socket)
         unordered_map<string, Session>::iterator it = sessions.find(session_id);
         if (it == sessions.end())
         {
-            out_msg.command = INVALID_PARAMS;
+            out_msg.command = INVALID_SESSION;
             out_msg_string = serialize_message(out_msg);
             out_buff(out_msg_string.begin(), out_msg_string.end());
             Server::send_with_header(new_socket, out_buff, 0);
@@ -244,7 +210,17 @@ void Server::handle_client_connection(int new_socket)
             string username = in_msg.content.substr(0, pos);
             string password = in_msg.content.substr(pos + 1);
 
-            User usr = load_user_data(BASE_PATH + username, enc_key);
+            try
+            {
+                User usr = load_user_data(BASE_PATH + username, enc_key);
+            }
+            catch (const runtime_error &e)
+            {
+                cerr << e.what() << endl;
+                out_msg.command = INVALID_CREDENTIALS;
+                break;
+            }
+
             if (Crypto::veryify_hash(password, hex_to_bytes(usr.password)))
             {
                 sess.user = username;
@@ -266,8 +242,17 @@ void Server::handle_client_connection(int new_socket)
             size_t pos = msg.content.find('-');
             double amount = stod(in_msg.content.substr(0, pos));
             string receiver_str = in_msg.content.substr(pos + 1);
-            User sender = load_user_data(BASE_PATH + sess.user, enc_key);
-            User receiver = load_user_data(BASE_PATH + receiver_str, enc_key);
+            try
+            {
+                User sender = load_user_data(BASE_PATH + sess.user, enc_key);
+                User receiver = load_user_data(BASE_PATH + receiver_str, enc_key);
+            }
+            catch (const runtime_error &e)
+            {
+                cerr << e.what() << endl;
+                out_msg.command = INVALID_PARAMS;
+                break;
+            }
 
             if (amount <= 0 || sender.balance < amount)
             {
@@ -299,11 +284,14 @@ void Server::handle_client_connection(int new_socket)
                 out_msg.command = UNAUTHORIZED;
                 break;
             }
+
             User usr = load_user_data(BASE_PATH + sess.user, enc_key);
 
-            for(int i = 0; i < min(MAX_TRANSFERS, usr.transfer_history.size()); i++){
+            for (int i = 0; i < min(MAX_TRANSFERS, usr.transfer_history.size()); i++)
+            {
                 out_msg.content += serialize_transfer(usr.transfer_history[usr.transfer_history.size() - i - 1]);
-                if(i + 1 < min(MAX_TRANSFERS, usr.transfer_history.size())) out_msg.content += "|"
+                if (i + 1 < min(MAX_TRANSFERS, usr.transfer_history.size()))
+                    out_msg.content += "|"
             }
             break;
         case CLOSE:
@@ -320,7 +308,8 @@ void Server::handle_client_connection(int new_socket)
         Crypto::aes_encrypt(sess.aes_key, serialize_message(out_msg), out_buff);
         send_with_header(new_socket, out_buff, session_id);
 
-        if(must_delete){
+        if (must_delete)
+        {
             Server::destroy_session_keys(sess);
             sessions.erase(it);
         }
@@ -336,12 +325,29 @@ void Server::handle_client_connection(int new_socket)
             sess = sessions.find(session_id)->second;
             out_msg_string = serialize_message(Server::generate_server_hello(in_msg.content, session_id));
             out_buff(out_msg_string.begin(), out_msg_string.end());
-            Server::send_with_header(new_socket, out_buff, 0);
+            if (Server::send_with_header(new_socket, out_buff, 0) == -1)
+            {
+                cout << "[-] Key exchange failed: socket error" << endl;
+                return;
+            }
 
-            Server::recv_with_header(new_socket, in_buff, in_msg_header);
-            Crypto::RSA_decrypt(eph_priv_key, in_buff, in_msg_string);
+            if (Server::recv_with_header(new_socket, in_buff, in_msg_header) == -1)
+            {
+                cout << "[-] Key exchange failed: socket error" << endl;
+                return;
+            }
+
+            if(Crypto::rsa_decrypt(eph_priv_key, in_buff, in_msg_string) == -1) {
+                cout << "[-] Key exchange failed: Can't decrypt session keys" << endl; 
+                return
+            }
             in_msg = deserialize_message(in_msg_string);
-
+            if (in_msg.command != KEY_EXCHANGE)
+            {
+                in_msg.content.clear();
+                cout << "[-] Key exchange failed: wrong command" << endl; 
+                return
+            }
             // saving the key in the session struct and cleaning the string to make sure no sensitive data is stored
             size_t pos = msg.content.find('-');
             sess.aes_key = hex_to_bytes(in_msg.content.substr(0, pos));

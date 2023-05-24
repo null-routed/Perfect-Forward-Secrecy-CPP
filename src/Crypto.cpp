@@ -6,11 +6,60 @@
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include <openssl/rand.h>
+#include <openssl/x509.h>
+#include <openssl/x509_vfy.h>
 #include <vector>
 #include <string>
 #include <cstring>
 
 using namespace std;
+
+std::string read_owner_from_cert(X509* cert) {
+    X509_NAME* owner_name = X509_get_subject_name(cert);
+    char buffer[256];
+    X509_NAME_oneline(owner_name, buffer, sizeof(buffer));
+    return std::string(buffer);
+}
+
+
+bool verify_certificate(X509_STORE *store, X509* cert){
+    X509_STORE_CTX *ctx = X509_STORE_CTX_new();
+
+    if (X509_STORE_CTX_init(ctx, store, cert, NULL) != 1) {
+        X509_STORE_CTX_free(ctx);
+        throw runtime_error("Failed to initialize X509_STORE_CTX");
+    }
+
+    int verify_result = X509_verify_cert(ctx);
+
+    X509_STORE_CTX_free(ctx);
+
+    return verify_result;
+}
+
+vector<unsigned char> read_public_key_from_cert(X509* cert) {
+    if (cert == nullptr) {
+        throw runtime_error("Invalid X509 certificate pointer.");
+    }
+
+    EVP_PKEY* pkey = X509_get_pubkey(cert);
+    if (pkey == nullptr) {
+        throw runtime_error("Could not extract public key from certificate.");
+    }
+
+    RSA* rsa = EVP_PKEY_get1_RSA(pkey);
+    const BIGNUM* n;
+    RSA_get0_key(rsa, &n, nullptr, nullptr);
+
+    int length = BN_num_bytes(n);
+    vector<unsigned char> key(length);
+    BN_bn2bin(n, key.data());
+
+    EVP_PKEY_free(pkey);
+    RSA_free(rsa);
+    
+    return key;
+}
 
 int rsa_encrypt(const vector<unsigned char>& pub_key, string& message, vector<unsigned char>& encrypted)
 {
@@ -44,7 +93,7 @@ int rsa_encrypt(const vector<unsigned char>& pub_key, string& message, vector<un
     return encrypted_length;
 }
 
-int RSA_decrypt(const vector<unsigned char>& priv_key, const vector<unsigned char>& encrypted, string& message)
+int rsa_decrypt(const vector<unsigned char>& priv_key, const vector<unsigned char>& encrypted, string& message)
 {
     RSA* rsa = RSA_new();
     BIO* bio = BIO_new_mem_buf(priv_key.data(), (int)priv_key.size());

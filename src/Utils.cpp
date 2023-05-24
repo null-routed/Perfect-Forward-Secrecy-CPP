@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sys/socket.h>
 #include <string>
 #include <iostream>
 #include <cstring>
@@ -8,6 +9,8 @@
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <fstream>
+#include <stdexcept>
+#include <stdio.h>
 #include "../include/SecureBankApplication/Utils.h"
 #include "../include/SecureBankApplication/Transaction.h"
 
@@ -163,7 +166,7 @@ unsigned char hex_digit_to_value(char digit)
 
 void exit_with_error(const string &error)
 {
-    cerr << error << endl;
+    perror(error.c_str());
     exit(1);
 }
 
@@ -193,7 +196,7 @@ void write_user_data(const string& file_path, const User& user_data, const vecto
 
         file.close();
     } else {
-        cerr << "Failed to open file: " << file_path << endl;
+        throw runtime_error("Failed to open path" + file_path);
     }
 }
 
@@ -228,8 +231,59 @@ User load_user_data(const string& file_path, const vector<unsigned char> &enc_ke
         }
         file.close();
     } else {
-        cerr << "Failed to open file: " << file_path << endl;
+        throw runtime_error("Failed to open user file:" + file_path);
     }
 
     return user_data;
+}
+
+int send_with_header(int socket, const vector<unsigned char> &data_buffer, uint32_t sender)
+{
+    Header header;
+    header.length = data_buffer.size();
+    header.sender = sender;
+    vector<unsigned char> header_buffer = serialize_header(header);
+
+    int ret = send(socket, header_buffer.data(), header_buffer.size(), 0);
+    if (ret <= 0)
+    {
+        return -1;
+    }
+
+    ret = send(socket, data_buffer.data(), data_buffer.size(), 0);
+    if (ret <= 0)
+    {
+        return -1;
+    }
+
+    return ret;
+}
+
+int recv_with_header(int socket, vector<unsigned char> &data_buffer, Header &header)
+{
+    vector<unsigned char> header_buffer(Constants::HEADER_SIZE);
+    int ret = recv(socket, header_buffer.data(), Constants::HEADER_SIZE, 0);
+    if (ret <= 0)
+    {
+        return -1;
+    }
+
+    header = deserialize_header(header_buffer.data());
+
+    data_buffer.resize(header.length);
+    vector<unsigned char> tmp_buffer(Constants::MAX_BUFFER_SIZE);
+    int recv_data = 0;
+
+    while (recv_data < header.length)
+    {
+        ret = recv(socket, tmp_buffer.data(), Constants::MAX_BUFFER_SIZE, 0);
+        if (ret <= 0)
+        {
+            return -1;
+        }
+        recv_data += ret;
+        copy(tmp_buffer.begin(), tmp_buffer.begin() + ret, data_buffer.begin() + recv_data - ret);
+    }
+
+    return recv_data;
 }

@@ -28,6 +28,10 @@ public:
     Message create_message(int option);
 
     void get_user_details();
+
+private:
+    X509* ca_cert;
+    X509_STORE* cert_store;
 };
 
 #endif // CLIENT_H
