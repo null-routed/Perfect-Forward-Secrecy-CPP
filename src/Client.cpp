@@ -58,8 +58,6 @@ Client::handle_server_connection(bool loged_in)
         switch (option)
         {
             case Constants::CLIENT_HELLO:
-                // what do we need to create account?
-                // username and password?
 
                 if (loged_in)
                 {
@@ -119,20 +117,6 @@ Client::client_hello()
     
 }
 
-// Client::get_input(std::vector<unsigned char>& data)
-// {
-//     std::string input;
-//     std::cin >> input;
-
-//     // Clear the vector before reading new input
-//     inputVector.clear();
-
-//     // Convert each character of the input string to unsigned char
-//     for (char c : input) {
-//         data.push_back(static_cast<unsigned char>(c));
-//     }
-// }
-
 Client::create_header(const Message &toSerialize, uint32_t sender)
 {
     Header header;
@@ -144,10 +128,9 @@ Client::create_header(const Message &toSerialize, uint32_t sender)
 
 Client::create_message(int option, const vector<unsigned char> &header, uint32_t sender)
 {
-    int nonce_length = 16; //???
     Message message;
     message.option = option;
-    message.nonce = Crypto::generateNonce(nonce_length);
+    message.nonce = Crypto::generateNonce(Constants::NONCE_LENGTH);
     // message.content = What is content when we ask for balance
     // message.hmac = Crypto::generateHMAC(); option, nonce and message as content?
     return message;
@@ -163,4 +146,23 @@ Client::display_options(bool loged_in) {
     std::cout << "2. Make transfer" << std::endl;
     std::cout << "3. Check balance" << std::endl;
     std::cout << "4. Show history of transfers" << std::endl;
+}
+
+Client::get_transfer_details(string sender)
+{
+    Transfer transfer;
+    trnsfer.amount = 0.0;
+    transfer.sender = sender;
+    std::cout << "Specify recipient:" << std::endl;
+    std::cin >> transfer.receiver;
+
+    while(transfer.amount <= 0.0)
+    {
+        std::cout << "Specify amount:" << std::endl;
+        std::cin >> transfer.amount;
+    }
+    
+    transfer.timestamp = std::time(0);
+
+    return transfer;
 }
