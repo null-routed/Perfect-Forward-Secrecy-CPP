@@ -21,7 +21,6 @@ std::string read_owner_from_cert(X509* cert) {
     return std::string(buffer);
 }
 
-
 bool verify_certificate(X509_STORE *store, X509* cert){
     X509_STORE_CTX *ctx = X509_STORE_CTX_new();
 

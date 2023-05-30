@@ -1,5 +1,5 @@
-// Utils.h
-#pragma once
+#ifndef UTILS_H
+#define UTILS_H
 
 #include <vector>
 #include <string>
@@ -32,3 +32,5 @@ unsigned char hex_digit_to_value(char digit);
 void exit_with_error(const std::string &error);
 
 void print_vector(const std::vector<unsigned char>& text);
+
+#endif // UTILS_H

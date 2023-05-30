@@ -47,14 +47,14 @@ void Server::check_expired_sessions()
     {
         sleep(SLEEP_TIME);
 
-        // Locking the muted on the shared variable
+        // Locking the mutex on the shared variable
         pthread_mutex_lock(&sessions_mutex);
 
         // Iterating through all sessions, if the time since last ping is greater than TIMEOUT_TIME
         // we delete session keys and erase the session from the sessions map
         for (unordered_map<string, Session>::iterator it = sessions.begin(); it != sessions.end())
         {
-            chrono::duration<double> elapsed = chrono::steady_clock::now() - p->second.last_ping;
+            chrono::duration<double> elapsed = chrono::system_clock::now() - p->second.last_ping;
             if (elapsed.count() > TIMEOUT_TIME)
             {
                 if (Server::destroy_session_keys(p->second))
@@ -128,13 +128,12 @@ void Server::start_server()
     }
 }
 
-Message Server::generate_server_hello(string clientNonce, string session_id)
+Message Server::generate_server_hello(string client_nonce, string session_id)
 {
     Session session = sessions.find(session_id);
     Message server_hello;
-    Message.command = SERVER_HELLO;
-    Message.nonce = "";
-    Message.content = bytes_to_hex(session.eph_pub_key) + "-" + Crypto::generate_signature(clientNonce + bytes_to_hex(session.eph_pub_key)) + "-" + bytes_to_hex(serialize_certificate(own_cert));
+    server_hello.command = SERVER_HELLO;
+    server_hello.content = bytes_to_hex(session.eph_pub_key) + "-" + Crypto::generate_signature(client_nonce + bytes_to_hex(session.eph_pub_key)) + "-" + bytes_to_hex(serialize_certificate(own_cert));
 }
 
 string Server::generate_session()
@@ -147,7 +146,7 @@ string Server::generate_session()
 
     Session session;
     Crypto::generate_key_pair(session.eph_priv_key, session.eph_pub_key);
-    session.last_ping = chrono::steady_clock::now();
+    session.last_ping = chrono::system_clock::now();
     sessions[session_id] = session;
     sessions[session_id].user = "";
 
@@ -184,16 +183,17 @@ void Server::handle_client_connection(int new_socket)
             out_msg.command = INVALID_SESSION;
             out_msg_string = serialize_message(out_msg);
             out_buff(out_msg_string.begin(), out_msg_string.end());
-            Server::send_with_header(new_socket, out_buff, 0);
+            send_with_header(new_socket, out_buff, 0);
             return;
         }
         sess = it->second;
-        sess.last_ping = chrono::steady_clock::now();
+        sess.last_ping = chrono::system_clock::now();
         Crypto::aes_decrypt(sess.aes_key, in_buff, in_msg_string);
         in_msg = deserialize_message(in_msg_string);
 
-        // checking for a valid hmac and for replay attacks
-        if (!Crypto::verify_hmac(sess.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || find(sess.session_nonces.begin(), sess.session_nonces.end(), in_msg.nonce) != sess.session_nonces.end())
+        // Checking integrity, authenticity and replay attacks
+        chrono::duration<long long, milli> diff = chrono::system_clock::now() - in_msg.timestamp;
+        if (!Crypto::verify_hmac(sess.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff) > RECV_WINDOW)
         {
             // invalidating the session
             msg.command = -1;
@@ -267,6 +267,7 @@ void Server::handle_client_connection(int new_socket)
             }
 
             break;
+
         case GET_BALANCE:
             if (sess.user == "")
             {
@@ -276,8 +277,8 @@ void Server::handle_client_connection(int new_socket)
 
             User usr = load_user_data(BASE_PATH + sess.user, enc_key);
             out_msg.content = to_string(usr.balance);
-
             break;
+
         case GET_TRANSFERS:
             if (sess.user == "")
             {
@@ -294,6 +295,7 @@ void Server::handle_client_connection(int new_socket)
                     out_msg.content += "|"
             }
             break;
+
         case CLOSE:
             must_delete = true;
             break;
@@ -325,13 +327,13 @@ void Server::handle_client_connection(int new_socket)
             sess = sessions.find(session_id)->second;
             out_msg_string = serialize_message(Server::generate_server_hello(in_msg.content, session_id));
             out_buff(out_msg_string.begin(), out_msg_string.end());
-            if (Server::send_with_header(new_socket, out_buff, 0) == -1)
+            if (send_with_header(new_socket, out_buff, 0) == -1)
             {
                 cout << "[-] Key exchange failed: socket error" << endl;
                 return;
             }
 
-            if (Server::recv_with_header(new_socket, in_buff, in_msg_header) == -1)
+            if (recv_with_header(new_socket, in_buff, in_msg_header) == -1)
             {
                 cout << "[-] Key exchange failed: socket error" << endl;
                 return;
@@ -357,17 +359,17 @@ void Server::handle_client_connection(int new_socket)
             memset(eph_pub_key.data(), 0, eph_pub_key.size());
             memset(eph_priv_key.data(), 0, eph_priv_key.size());
 
-            out_msg = {SERVER_OK, "", session_id, ""};
+            out_msg = {SERVER_OK, std::chrono::system_clock::now(), session_id, ""};
             out_msg_string = serialize_message(out_msg);
             Crypto::aes_encrypt(sess.aes_key, out_msg_string, out_buff);
-            Server::send_with_header(new_socket, out_buff, session_id);
+            send_with_header(new_socket, out_buff, session_id);
         }
         else
         {
             out_msg.command = INVALID_PARAMS;
             out_msg_string = serialize_message(out_msg);
             out_buff(out_msg_string.begin(), out_msg_string.end());
-            Server::send_with_header(new_socket, out_buff, 0);
+            send_with_header(new_socket, out_buff, 0);
         }
     }
 }

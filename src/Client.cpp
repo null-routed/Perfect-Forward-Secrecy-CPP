@@ -11,6 +11,8 @@
 
 using namespace std;
 
+
+
 Client::Client()
 {
     cert_store = X509_STORE_new();
@@ -68,8 +70,8 @@ Client::handle_server_connection(int socket)
     Message in_msg;
     Header in_msg_header;
 
-    string session_id;
-    Session sess;
+    // string session_id;
+    Session session;
 
     // send client_hello
     out_msg.command = Constants::CLIENT_HELLO;
@@ -100,11 +102,11 @@ Client::handle_server_connection(int socket)
     }
 
     // Generate HMAC key and AES key
-    vector<unsigned char> hmac_key = generateNonce(Constants::HMAC_LENGTH);
-    vector<unsigned char> aes_key = generateNonce(Constants::AES_LENGTH);
+    session.hmac_key = generateNonce(Constants::HMAC_LENGTH);
+    session.aes_key = generateNonce(Constants::AES_LENGTH);
     out_msg.command = Constants::KEY_EXCHANGE;
     out_msg.nonce = generateNonce(Constants::NONCE_LENGTH);
-    out_msg.content = bytes_to_hex(hmac_key) + '-' + bytes_to_hex(aes_key);
+    out_msg.content = bytes_to_hex(session.hmac_key) + '-' + bytes_to_hex(session.aes_key);
     if(rsa_encrypt(eph_pub_key, serialize_message(out_msg), out_buff)==-1)
     {
         exit_with_error("[-]Error failed to encrypt key exchange message");
@@ -115,7 +117,7 @@ Client::handle_server_connection(int socket)
     // receiv server OK
     recv_with_header(socket, in_buff, in_msg_header);
     // decrypt with aes_key
-    if(Crypto::rsa_decrypt(aes_key, in_buff, in_msg_string) == -1) {
+    if(Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1) {
         cout << "[-] Key exchange failed: Can't decrypt session id" << endl; 
         return
     }
@@ -126,7 +128,7 @@ Client::handle_server_connection(int socket)
         cout << "[-] Key exchange failed: wrong command" << endl; 
         return
     }
-    session_id - in_msg.content;
+    session.session_id = in_msg.content;
 
     
 
@@ -137,56 +139,77 @@ Client::handle_server_connection(int socket)
 
     switch (option)
     {
-    case Constants::CLIENT_HELLO:
 
-        if (loged_in)
-        {
-            std::cout << "Invalid option selected." << std::endl;
-            break;
-        }
-        loged_in = true;
-        break;
-
-    case Constants::LOGIN:
-        if (loged_in)
-        {
-            std::cout << "Invalid option selected." << std::endl;
-            break;
-        }
-        // get username and password
-
-        loged_in = true;
-        break;
-
-    case Constants::TRANSFER:
-
-        break;
-
-    case Constants::GET_BALANCE:
-    {
-        std::vector<unsigned char> key;
-        std::vector<unsigned char> content;
-        std::vector<unsigned char> hmac;
-
-        vector<unsigned char> nonce = Crypto::generateNonce(Constants::NONCE_LENGTH);
-
-        // Crypto::generateHMAC(key, content, hmac);
-
-        Message message = Client::create_message(Constants::GET_BALANCE);
-        Header header = Client::create_header(message, sender);
-        // send header
-        // send message
-        // receiv balance
-                }
-                break;
-
-            case Constants::GET_TRANSFER_HISTORY:
-                
-                break;
-
-            default:
+        case Constants::LOGIN:
+            if (loged_in)
+            {
                 std::cout << "Invalid option selected." << std::endl;
+                break;
             }
+            // get username and password
+            std::cout << "Enter username: ";
+            std::cin >> session.username;
+
+            std::cout << "Enter password: ";
+            std::cin >> session.password;
+            out_msg.command = Constants::LOGIN;
+            out_msg.timestamp = chrono::steady_clock::now();
+            out_msg.content = session.username + '|' + session.password;
+            if(!Crypto::generateHMAC(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
+            {
+                exit_with_error("[-]Error: failed to generate HMAC");
+            }
+            out_msg.hmac = bytes_to_hex(out_buff);
+
+            Crypto::aes_encrypt(session.aes_key, serialize_message(out_msg), out_buff);
+            send_with_header(new_socket, out_buff, session_id);
+
+            // Receiv server response
+            recv_with_header(socket, in_buff, in_msg_header);
+            if(Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1) {
+                cout << "[-] Key exchange failed: Can't decrypt session id" << endl; 
+                return
+            }
+            in_msg = deserialize_message(in_msg_string);
+            if (in_msg.command != Constants::SUCCESS)
+            {
+                in_msg.content.clear();
+                cout << "[-] Failed to login" << endl; 
+                return
+            }else{
+                loged_in = true;
+            }
+            break;
+
+        case Constants::TRANSFER:
+
+            break;
+
+        case Constants::GET_BALANCE:
+        {
+            std::vector<unsigned char> key;
+            std::vector<unsigned char> content;
+            std::vector<unsigned char> hmac;
+
+            vector<unsigned char> nonce = Crypto::generateNonce(Constants::NONCE_LENGTH);
+
+            // Crypto::generateHMAC(key, content, hmac);
+
+            Message message = Client::create_message(Constants::GET_BALANCE);
+            Header header = Client::create_header(message, sender);
+            // send header
+            // send message
+            // receiv balance
+        }
+            break;
+
+        case Constants::GET_TRANSFER_HISTORY:
+            
+            break;
+
+        default:
+            std::cout << "Invalid option selected." << std::endl;
+    }
 }
 
 Client::client_hello()

@@ -5,6 +5,15 @@
 #include "Transaction.h"
 // #include "Constants.h"
 
+struct Session
+{
+    std::vector<unsigned char> hmac_key;
+    std::vector<unsigned char> aes_key;
+    std::string session_id;
+    std::string username;
+    std::string password;
+};
+
 class Client
 {
 public:

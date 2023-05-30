@@ -1,5 +1,5 @@
-// Crypto.h
-#pragma once
+#ifndef CRYPTO_H
+#define CRYPTO_H
 
 #include <string>
 #include <vector>
@@ -72,3 +72,5 @@ namespace Crypto
     bool verifyHash(const std::string &plaintext, const std::vector<unsigned char> &hash);
 
 }
+
+#endif // CRYPTO_H

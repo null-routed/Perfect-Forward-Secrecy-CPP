@@ -81,29 +81,33 @@ string serialize_transfer(const Transfer &transfer)
 
 string serialize_message_for_hmac(const Message &toSerialize)
 {
-    string sm = to_string(toSerialize.command) + "|" + toSerialize.nonce + "|" + toSerialize.content;
+    string sm = to_string(toSerialize.command) + "|" + to_string(chrono::system_clock::to_time_t(toSerialize.timestamp)) + "|" + toSerialize.content;
     return sm;
 }
 
 string serialize_message(const Message &toSerialize)
 {
-    string sm = to_string(toSerialize.command) + "|" + toSerialize.nonce + "|" + toSerialize.content + "|" + toSerialize.hmac;
+    string sm = to_string(toSerialize.command) + "|" + to_string(chrono::system_clock::to_time_t(toSerialize.timestamp)) + "|" + toSerialize.content + "|" + toSerialize.hmac;
     return sm;
 }
 
 Message deserialize_message(const string &serialized)
 {
     Message msg;
-
+    string unix_str;
+    time_t unix_ts;
     stringstream ss(serialized);
-
     string command;
+
     getline(ss, command, '|');
     msg.command = stoi(command);
 
-    getline(ss, msg.nonce, '|');
+    getline(ss, unix_str, '|');
     getline(ss, msg.content, '|');
     getline(ss, msg.hmac, '|');
+
+    unix_ts = stoll(unix_str);
+    msg.timestamp = chrono::system_clock::from_time_t(unix_ts);
 
     return msg;
 }

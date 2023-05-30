@@ -15,9 +15,8 @@ struct Session
 {
     std::vector<unsigned char> hmac_key;
     std::vector<unsigned char> aes_key;
-    std::vector<std::string> session_nonces;
     std::string user;
-    std::chrono::steady_clock::time_point last_ping;
+    std::chrono::system_clock::time_point last_ping;
 };
 
 // Class for the bank server

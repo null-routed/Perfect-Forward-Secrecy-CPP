@@ -2,6 +2,7 @@
 #define TRANSACTIONS_H
 
 #include <string>
+#include <chrono>
 
 struct Transfer
 {
@@ -31,7 +32,7 @@ struct Header
 struct Message
 {
     int command;
-    std::string nonce;
+    std::chrono::system_clock::time_point timestamp;
     std::string content;
     std::string hmac;
 };

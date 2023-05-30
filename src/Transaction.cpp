@@ -5,14 +5,14 @@
 
 using namespace std;
 
-std::ostream& operator<<(std::ostream& os, const Transfer& transfer) {
-    std::string timestampStr = std::asctime(std::localtime(&transfer.timestamp));
-    timestampStr = timestampStr.substr(0, timestampStr.length() - 1);  // Remove the trailing newline character
+ostream& operator<<(ostream& os, const Transfer& transfer) {
+    string timestampStr = asctime(localtime(&transfer.timestamp));
+    timestampStr = timestampStr.substr(0, timestampStr.length() - 1);  // Remove the newline character
 
     // Print the transfer information in a fancy format
-    os << "Sender: " << transfer.sender << std::endl;
-    os << "Receiver: " << transfer.receiver << std::endl;
-    os << "Amount: " << transfer.amount << std::endl;
+    os << "Sender: " << transfer.sender << endl;
+    os << "Receiver: " << transfer.receiver << endl;
+    os << "Amount: " << transfer.amount << endl;
     os << "Timestamp: " << timestampStr;
 
     return os;
