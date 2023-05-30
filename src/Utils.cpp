@@ -6,8 +6,8 @@
 #include <openssl/bio.h>
 #include <iostream>
 #include <stdio.h>
-#include "../include/SecureBankApplication/Utils.h"
-#include "../include/SecureBankApplication/Transaction.h"
+#include "Utils.h"
+#include "Transaction.h"
 
 using namespace std;
 

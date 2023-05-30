@@ -1,5 +1,5 @@
-#include "../include/SecureBankApplication/Crypto.h"
-#include "../include/SecureBankApplication/Constants.h"
+#include "Crypto.h"
+#include "Constants.h"
 #include "Utils.cpp"
 #include <cstring>
 

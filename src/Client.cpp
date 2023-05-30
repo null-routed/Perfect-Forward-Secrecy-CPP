@@ -1,5 +1,5 @@
-#include "../include/SecureBankApplication/Client.h"
-#include "../include/SecureBankApplication/Transaction.h"
+#include "Client.h"
+#include "Transaction.h"
 #include "Utils.cpp"
 #include <sys/socket.h>
 #include <netinet/in.h>

@@ -1,6 +1,6 @@
 #include <iostream>
 #include <ctime>
-#include "../include/SecureBankApplication/Transaction.h"
+#include "Transaction.h"
 
 using namespace std;
 

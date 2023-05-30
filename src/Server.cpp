@@ -1,6 +1,6 @@
-#include "../include/SecureBankApplication/Server.h"
-#include "../include/SecureBankApplication/Constants.h"
-#include "../include/SecureBankApplication/Transaction.h"
+#include "Server.h"
+#include "Constants.h"
+#include "Transaction.h"
 #include "Utils.cpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
