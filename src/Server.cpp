@@ -300,12 +300,13 @@ void Server::handle_client_connection(int new_socket)
         case CLOSE:
             must_delete = true;
             break;
+
         default:
             out_msg.command = INVALID_PARAMS;
             break;
         }
 
-        Crypto::generateHMAC(sess.hmac_key, serialize_message_for_hmac(out_msg), out_buff);
+        Crypto::generate_hmac(sess.hmac_key, serialize_message_for_hmac(out_msg), out_buff);
         out_msg.hmac = bytes_to_hex(out_buff);
 
         Crypto::aes_encrypt(sess.aes_key, serialize_message(out_msg), out_buff);
