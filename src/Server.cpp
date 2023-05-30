@@ -35,7 +35,7 @@ Server::~Server()
 bool Server::destroy_session_keys(Session &sess)
 {
 #pragma optimize("", off)
-    memset(sess.aes_key.data(), 0, session.aes_key.size()); // can memset fail? If yes, check for result
+    memset(sess.aes_key.data(), 0, session.aes_key.size());
     memset(sess.hmac_key.data(), 0, session.hmac_key.size());
 #pragma optimize("", on)
     return true;
@@ -187,13 +187,12 @@ void Server::handle_client_connection(int new_socket)
             return;
         }
         sess = it->second;
-        sess.last_ping = chrono::system_clock::now();
         Crypto::aes_decrypt(sess.aes_key, in_buff, in_msg_string);
         in_msg = deserialize_message(in_msg_string);
 
         // Checking integrity, authenticity and replay attacks
         chrono::duration<long long, milli> diff = chrono::system_clock::now() - in_msg.timestamp;
-        if (!Crypto::verify_hmac(sess.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff) > RECV_WINDOW)
+        if (!Crypto::verify_hmac(sess.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff) > RECV_WINDOW || in_msg.timestamp == sess.last_ping)
         {
             // invalidating the session
             msg.command = -1;
@@ -201,6 +200,8 @@ void Server::handle_client_connection(int new_socket)
 
         out_msg.nonce = in_msg.nonce;
         out_msg.command = SUCCESS;
+        sess.last_ping = chrono::system_clock::now();
+
         switch (in_msg.command)
         {
         case LOGIN:
@@ -339,15 +340,16 @@ void Server::handle_client_connection(int new_socket)
                 return;
             }
 
-            if(Crypto::rsa_decrypt(eph_priv_key, in_buff, in_msg_string) == -1) {
-                cout << "[-] Key exchange failed: Can't decrypt session keys" << endl; 
+            if (Crypto::rsa_decrypt(eph_priv_key, in_buff, in_msg_string) == -1)
+            {
+                cout << "[-] Key exchange failed: Can't decrypt session keys" << endl;
                 return
             }
             in_msg = deserialize_message(in_msg_string);
             if (in_msg.command != KEY_EXCHANGE)
             {
                 in_msg.content.clear();
-                cout << "[-] Key exchange failed: wrong command" << endl; 
+                cout << "[-] Key exchange failed: wrong command" << endl;
                 return
             }
             // saving the key in the session struct and cleaning the string to make sure no sensitive data is stored

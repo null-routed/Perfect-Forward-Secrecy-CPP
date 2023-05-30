@@ -31,6 +31,7 @@ Client::~Client()
     X509_store_free(cert_store);
 }
 
+// Looks good even though valread is never used
 Client::connect_with_server()
 {   
     int status, valread;
@@ -57,7 +58,11 @@ Client::connect_with_server()
         exit_with_error("[-] Error: Connection Failed \n");
     }
 }
-
+// Key exchange looks good but needs testing ofc
+// The problem here is that the display option should be in a loop
+// After the client is connected to the server, we should make a loop where the user is prompted to 
+// insert a command and the loop should be repeated until the user uses the CLOSE command
+// I would therefore separate the key exchange part in a function and make the rest in another function
 Client::handle_server_connection(int socket)
 {   
     vector<unsigned char> in_buff;
@@ -212,6 +217,8 @@ Client::handle_server_connection(int socket)
     }
 }
 
+// Can be removed since the client hello message is already built in the previous 
+// Function. Otherwise we must modify the previous function
 Client::client_hello()
 {
     Message hello_msg;
@@ -220,6 +227,7 @@ Client::client_hello()
     
 }
 
+// Probably not needed since we can use send_with_header that builds the header automatically
 Client::create_header(const Message &toSerialize, uint32_t sender)
 {
     Header header;
@@ -229,6 +237,7 @@ Client::create_header(const Message &toSerialize, uint32_t sender)
     return header;
 }
 
+// Probably not needed
 Client::create_message(int option, const vector<unsigned char> &header, uint32_t sender)
 {
     Message message;
@@ -239,6 +248,7 @@ Client::create_message(int option, const vector<unsigned char> &header, uint32_t
     return message;
 }
 
+// Looks good, but I would also add a 5th option "CLOSE"
 Client::display_options(bool loged_in) {
     std::cout << "Choose one of the options:" << std::endl;
     if (loged_in)
@@ -251,6 +261,7 @@ Client::display_options(bool loged_in) {
     std::cout << "4. Show history of transfers" << std::endl;
 }
 
+// Looks good 
 Client::get_transfer_details(string sender)
 {
     Transfer transfer;

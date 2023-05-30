@@ -1,15 +1,10 @@
-#pragma once
-
-#include <sys/socket.h>
-#include <string>
-#include <iostream>
-#include <cstring>
-#include <sstream>
-#include <vector>
-#include <openssl/pem.h>
-#include <openssl/x509.h>
 #include <fstream>
+#include <sstream>
 #include <stdexcept>
+#include <cstring>
+#include <openssl/pem.h>
+#include <openssl/bio.h>
+#include <iostream>
 #include <stdio.h>
 #include "../include/SecureBankApplication/Utils.h"
 #include "../include/SecureBankApplication/Transaction.h"

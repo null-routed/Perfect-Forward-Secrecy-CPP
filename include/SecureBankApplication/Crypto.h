@@ -1,76 +1,144 @@
 #ifndef CRYPTO_H
 #define CRYPTO_H
 
-#include <string>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/rand.h>
+#include <openssl/x509.h>
+#include <openssl/x509_vfy.h>
 #include <vector>
+#include <string>
 
-namespace Crypto
-{
+namespace Crypto {
+
     /**
-     * @brief Generate pair of RSA keys.
-     * @param publicKey
-     * @param privateKey
+     * @brief Reads owner from an X509 certificate
+     * @param cert
+     * @return std::string
+     */
+    std::string read_owner_from_cert(X509* cert);
+
+    /**
+     * @brief Verifies a certificate is valid
+     * @param store
+     * @param cert
      * @return bool
      */
-    bool generate_key_pair(std::vector<unsigned char> &priv_key, std::vector<unsigned char> &pub_key);
+    bool verify_certificate(X509_STORE *store, X509* cert);
 
     /**
-     * @brief Encrypts a given message using the AES-128-CBC algorithm with a randomly generated IV.
-     * The message string will be overwritten with null bytes to remove any plain text data from memory
-     *
-     * @param key The key for encryption
-     * @param message The string to encrypt
-     * @param encryptedMessage The vector that stores the encrypted data
-     * @return int, length of the encryptedMessage, or -1 on failure.
+     * @brief Reads the public key from a certificate
+     * @param cert
+     * @return std::vector<unsigned char>
+     */
+    std::vector<unsigned char> read_public_key_from_cert(X509* cert);
+
+    /**
+     * @brief Encrypts a string using an RSA public key
+     * @param pub_key 
+     * @param message 
+     * @param encrypted 
+     * @return int, size of the ciphertext
+     */
+    int rsa_encrypt(const std::vector<unsigned char>& pub_key, std::string& message, std::vector<unsigned char>& encrypted);
+
+    /**
+     * @brief Decrypts a RSA-encrypted ciphertext
+     * @param priv_key 
+     * @param encrypted 
+     * @param message 
+     * @return int, size of the plaintext
+     */
+    int rsa_decrypt(const std::vector<unsigned char>& priv_key, const std::vector<unsigned char>& encrypted, std::string& message);
+
+    /**
+     * @brief Encrypts a string using a symmetric AES key
+     * @param key 
+     * @param message 
+     * @param encryptedMessage 
+     * @return int, size of the ciphertext
      */
     int aes_encrypt(const std::vector<unsigned char> &key, std::string &message, std::vector<unsigned char> &encryptedMessage);
 
     /**
-     * @brief Decrypts a given message using the AES-128-CBC algorithm.
-     *
+     * @brief Decrypts a AES-encrypted ciphertext
      * @param key 
      * @param encryptedMessage 
      * @param decryptedMessage 
-     * @return int, length of the decryptedMessage, or -1 on failure.
+     * @return int, size of plaintext
      */
     int aes_decrypt(const std::vector<unsigned char> &key, const std::vector<unsigned char> &encryptedMessage, std::string &decryptedMessage);
 
     /**
-     * @brief Generate an HMAC for a given message with a given key. Returns the number of bytes in the HMAC, or a negative value if an error occurred.
-     * @param key
-     * @param message
-     * @param hmac
-     * @return bool
+     * @brief Generates a pair of RSA keys.
+     * @param priv_key
+     * @param pub_key
+     * @return bool, false on failure
      */
-    bool generateHMAC(const std::vector<unsigned char> &key, const std::string &message, std::vector<unsigned char> &hmac);
+    bool generate_key_pair(std::vector<unsigned char> &priv_key, std::vector<unsigned char> &pub_key);
 
     /**
-     * @brief Verify an HMAC for a given message with a given key. Returns true if the HMAC is valid, false otherwise.
-     * @param key
-     * @param message
-     * @param hmac
-     * @return bool
+     * @brief Generates an HMAC for the message
+     * @param key 
+     * @param message 
+     * @param hmac 
+     * @return bool, false on failure 
      */
-    bool verifyHMAC(const std::vector<unsigned char> &key, const std::string &message, const std::vector<unsigned char> &hmac);
+    bool generate_hmac(const std::vector<unsigned char> &key, const std::string &message, std::vector<unsigned char> &hmac);
 
     /**
-     * @brief Generates a vector of random bytes of any given length 
-     * 
+     * @brief Verifies if the HMAC is authentic
+     * @param key 
+     * @param message 
+     * @param hmac 
+     * @return bool
+     */
+    bool verify_hmac(const std::vector<unsigned char> &key, const std::string &message, const std::vector<unsigned char> &hmac);
+
+    /**
+     * @brief Makes sure the random device is properly seeded and generates a random byte strength of given length
      * @param length 
-     * @return std::vector<unsigned char>, a vector of random bytes, empty array on error
+     * @return std::vector<unsigned char> 
      */
     std::vector<unsigned char> generateNonce(int length);
 
-    // Generate a digital signature for a given message with a given private key. Returns the number of bytes in the signature, or a negative value if an error occurred.
-    int generate_signature(const std::vector<unsigned char> &privateKey, const std::string &message, std::vector<unsigned char> &signature);
+    /**
+     * @brief Generates a signature on message using a private_key
+     * @param priv_key 
+     * @param message 
+     * @param signature 
+     * @return int, length of signature
+     */
+    int generate_signature(const std::vector<unsigned char> &priv_key, const std::string &message, std::vector<unsigned char> &signature);
 
-    // Verify a digital signature for a given message with a given public key. Returns true if the signature is valid, false otherwise.
+    /**
+     * @brief Verifies a signature given a message and public key
+     * @param message 
+     * @param signature 
+     * @param pub_key 
+     * @return bool
+     */
     bool verify_signature(const std::string &message, const std::vector<unsigned char> &signature, const std::vector<unsigned char> &pub_key);
 
+    /**
+     * @brief Performs hashing with a 16-byte salt
+     * @param plaintext 
+     * @param saltedHash 
+     * @param salt 
+     * @return bool
+     */
     bool hash_with_salt(const std::string &plaintext, std::vector<unsigned char> &saltedHash, std::vector<unsigned char> salt);
 
-    bool verifyHash(const std::string &plaintext, const std::vector<unsigned char> &hash);
+    /**
+     * @brief Verifies that a given plaintex hashes into a given salted hash
+     * @param plaintext 
+     * @param hash 
+     * @return bool
+     */
+    bool verify_hash(const std::string &plaintext, const std::vector<unsigned char> &hash);
 
 }
 
-#endif // CRYPTO_H
+#endif

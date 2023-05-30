@@ -1,15 +1,6 @@
 #include "../include/SecureBankApplication/Crypto.h"
 #include "../include/SecureBankApplication/Constants.h"
 #include "Utils.cpp"
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
-#include <openssl/rsa.h>
-#include <openssl/pem.h>
-#include <openssl/rand.h>
-#include <openssl/x509.h>
-#include <openssl/x509_vfy.h>
-#include <vector>
-#include <string>
 #include <cstring>
 
 using namespace std;
@@ -227,7 +218,7 @@ bool Crypto::generate_key_pair(vector<unsigned char> &priv_key, vector<unsigned 
     return true;
 }
 
-bool Crypto::generateHMAC(const vector<unsigned char> &key, const string &message, vector<unsigned char> &hmac)
+bool Crypto::genreate_hmac(const vector<unsigned char> &key, const string &message, vector<unsigned char> &hmac)
 {
     unsigned int hmac_size = EVP_MD_size(EVP_sha256());
     hmac.resize(hmac_size);
@@ -238,10 +229,10 @@ bool Crypto::generateHMAC(const vector<unsigned char> &key, const string &messag
     return true;
 }
 
-bool Crypto::verifyHMAC(const vector<unsigned char> &key, const string &message, const vector<unsigned char> &hmac)
+bool Crypto::verify_hmac(const vector<unsigned char> &key, const string &message, const vector<unsigned char> &hmac)
 {
     vector<unsigned char> expected_hmac;
-    generateHMAC(key, message, expected_hmac);
+    genreate_hmac(key, message, expected_hmac);
 
     bool result = (hmac == expected_hmac);
 

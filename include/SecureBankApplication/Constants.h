@@ -7,16 +7,17 @@ namespace Constants {
     
     const int HEADER_SIZE = 64;
     const int SALT_SIZE = 16;
-    const int MAX_BUFFER_SIZE = 4096; // Maximum buffer size for recv
+    const int MAX_BUFFER_SIZE = 4096; 
     const int MAX_TRANSFERS = 5;
 
     const int NONCE_LENGTH = 16;
     const int AES_LENGTH = 16;
     const int HMAC_LENGTH = 32;
-    const int SERVER_PORT = 8080; // The port the server will use to handle incoming connections
-    const int RECV_WINDOW = 500; // Acceptance window
+    const int SERVER_PORT = 8080; 
+    const int RECV_WINDOW = 500; // Acceptance window in milliseconds
 
-    const int CLIENT_HELLO = 0; // Commands
+    // Commands encoding
+    const int CLIENT_HELLO = 0; 
     const int SERVER_HELLO = 1;
     const int KEY_EXCHANGE = 2;
     const int SERVER_OK = 3;
