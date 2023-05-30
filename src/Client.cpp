@@ -80,7 +80,7 @@ Client::handle_server_connection(int socket)
 
     // receiv server hello
     recv_with_header(socket, in_buff, in_msg_header);
-    in_msg_string = string(in_buff.begin(), decrypted.end());
+    in_msg_string = string(in_buff.begin(), in_buff.end());
     in_msg = deserialize_message(in_msg_string)
     size_t pos = in_msg.content.find('-');
     vector<unsigned char> eph_pub_key = hex_to_bytes(in_msg.content.substr(0, pos));
@@ -109,7 +109,26 @@ Client::handle_server_connection(int socket)
     {
         exit_with_error("[-]Error failed to encrypt key exchange message");
     }
+    // Key exchange
     send_with_header(socket, out_buff, 0);
+
+    // receiv server OK
+    recv_with_header(socket, in_buff, in_msg_header);
+    // decrypt with aes_key
+    if(Crypto::rsa_decrypt(aes_key, in_buff, in_msg_string) == -1) {
+        cout << "[-] Key exchange failed: Can't decrypt session id" << endl; 
+        return
+    }
+    in_msg = deserialize_message(in_msg_string);
+    if (in_msg.command != Constants::SERVER_OK)
+    {
+        in_msg.content.clear();
+        cout << "[-] Key exchange failed: wrong command" << endl; 
+        return
+    }
+    session_id - in_msg.content;
+
+    
 
     int option;
     Client::display_options(loged_in);
