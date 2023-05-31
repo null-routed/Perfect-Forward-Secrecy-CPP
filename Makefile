@@ -10,8 +10,8 @@ CPP_FILES = $(wildcard $(SRC_DIR)/*.cpp)
 SERVER_CPP_FILES = $(filter-out $(SRC_DIR)/Client.cpp,$(CPP_FILES))
 CLIENT_CPP_FILES = $(filter-out $(SRC_DIR)/Server.cpp,$(CPP_FILES))
 
-# all: dir $(TARGET1) $(TARGET2)
-all: dir $(TARGET2)
+all: dir $(TARGET1) $(TARGET2)
+# all: dir $(TARGET2)
 
 dir:  
 	@mkdir -p $(TARGET_DIR)/Server
