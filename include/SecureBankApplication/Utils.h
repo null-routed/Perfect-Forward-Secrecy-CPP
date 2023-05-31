@@ -44,6 +44,13 @@ X509 *deserialize_certificate(const std::vector<unsigned char> &serialized);
 std::string serialize_transfer(const Transfer &transfer);
 
 /**
+* @brief Deserializes string to Transfer object
+* @param Serialized string
+* @return transfer Transfer object to serialize
+*/
+Transfer deserialize_transfer(const string &serialized)
+
+/**
 * @brief Serializes a Message object for HMAC
 * @param toSerialize Message object to serialize
 * @return Serialized string

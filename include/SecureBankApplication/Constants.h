@@ -24,7 +24,7 @@ namespace Constants {
     const int LOGIN = 4; 
     const int TRANSFER = 5; 
     const int GET_BALANCE = 6;
-    const int GET_TRANSFERS = 7; 
+    const int GET_TRANSFER_HISTORY = 7; 
     const int CLOSE = 8;
     const int SUCCESS = 9;
     const int INVALID_CREDENTIALS = 10;

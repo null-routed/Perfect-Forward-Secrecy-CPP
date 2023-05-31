@@ -1,7 +1,7 @@
 #include "Server.h"
 #include "Constants.h"
 #include "Transaction.h"
-#include "Utils.cpp"
+#include "Utils.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
@@ -27,18 +27,26 @@ Server::Server()
 
 Server::~Server()
 {
+    for(unordered_map<string, :string>::iterator it = sessions.begin(); it != sessions.end(); ++it){
+        Server::destroy_session_keys(it->second);
+    }
     X509_free(own_cert);
     close(server_socket);
     pthread_mutex_destroy(&sessions_mutex);
 }
 
-bool Server::destroy_session_keys(Session &sess)
+Server::handle_signal()
+{
+    delete this;
+    exit(1);
+}
+
+void Server::destroy_session_keys(Session &sess)
 {
 #pragma optimize("", off)
     memset(sess.aes_key.data(), 0, session.aes_key.size());
     memset(sess.hmac_key.data(), 0, session.hmac_key.size());
 #pragma optimize("", on)
-    return true;
 }
 
 void Server::check_expired_sessions()
@@ -78,6 +86,9 @@ void Server::check_expired_sessions()
 
 void Server::start_server()
 {
+
+    signal(SIGINT, Server::handle_signal);
+
     pthread_t checkThread;
     if (pthread_create(&checkThread, NULL, Server::check_expired_sessions, this))
     {
@@ -261,6 +272,9 @@ void Server::handle_client_connection(int new_socket)
             }
             else
             {
+                Transfer t = {sender.username, receiver.username, amount, time(nullptr)};
+                sender.transfer_history.push_back(t);
+                receiver.transfer_history.push_back(t);
                 sender.balance -= amount;
                 receiver.balance += amount;
                 write_user_data(BASE_PATH + sess.user, enc_key);
@@ -280,7 +294,7 @@ void Server::handle_client_connection(int new_socket)
             out_msg.content = to_string(usr.balance);
             break;
 
-        case GET_TRANSFERS:
+        case GET_TRANSFER_HISTORY:
             if (sess.user == "")
             {
                 out_msg.command = UNAUTHORIZED;
@@ -289,11 +303,12 @@ void Server::handle_client_connection(int new_socket)
 
             User usr = load_user_data(BASE_PATH + sess.user, enc_key);
 
-            for (int i = 0; i < min(MAX_TRANSFERS, usr.transfer_history.size()); i++)
+            int n_transfers = min(MAX_TRANSFERS, usr.transfer_history.size());
+            for (int i = 0; i < n_transfers; i++)
             {
                 out_msg.content += serialize_transfer(usr.transfer_history[usr.transfer_history.size() - i - 1]);
-                if (i + 1 < min(MAX_TRANSFERS, usr.transfer_history.size()))
-                    out_msg.content += "|"
+                if ((i + 1) < n_transfers)
+                    out_msg.content += "-";
             }
             break;
 
@@ -362,7 +377,7 @@ void Server::handle_client_connection(int new_socket)
             memset(eph_pub_key.data(), 0, eph_pub_key.size());
             memset(eph_priv_key.data(), 0, eph_priv_key.size());
 
-            out_msg = {SERVER_OK, std::chrono::system_clock::now(), session_id, ""};
+            out_msg = {SERVER_OK, :chrono::system_clock::now(), session_id, ""};
             out_msg_string = serialize_message(out_msg);
             Crypto::aes_encrypt(sess.aes_key, out_msg_string, out_buff);
             send_with_header(new_socket, out_buff, session_id);

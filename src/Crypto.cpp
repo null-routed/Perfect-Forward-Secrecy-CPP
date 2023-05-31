@@ -1,6 +1,6 @@
 #include "Crypto.h"
 #include "Constants.h"
-#include "Utils.cpp"
+#include "Utils.h"
 #include <cstring>
 
 using namespace std;
@@ -218,7 +218,7 @@ bool Crypto::generate_key_pair(vector<unsigned char> &priv_key, vector<unsigned 
     return true;
 }
 
-bool Crypto::genreate_hmac(const vector<unsigned char> &key, const string &message, vector<unsigned char> &hmac)
+bool Crypto::generate_hmac(const vector<unsigned char> &key, const string &message, vector<unsigned char> &hmac)
 {
     unsigned int hmac_size = EVP_MD_size(EVP_sha256());
     hmac.resize(hmac_size);
@@ -232,7 +232,7 @@ bool Crypto::genreate_hmac(const vector<unsigned char> &key, const string &messa
 bool Crypto::verify_hmac(const vector<unsigned char> &key, const string &message, const vector<unsigned char> &hmac)
 {
     vector<unsigned char> expected_hmac;
-    genreate_hmac(key, message, expected_hmac);
+    generate_hmac(key, message, expected_hmac);
 
     bool result = (hmac == expected_hmac);
 

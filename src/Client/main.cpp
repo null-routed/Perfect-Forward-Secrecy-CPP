@@ -12,16 +12,12 @@
 
 using namespace std;
 
-bool loged_in;
-
 int main()
-{   
-    loged_in = false;
-    std::cout << "Welcome to NM Bank!";
-    while(true)
-    {
-        // handle_server_connection(loged_in);
-    }
-
+{
+    cout << "Welcome to NM Bank!" << endl;
+    Client client = new Client();
+    client.connect_with_server();
+    client.destroy_session_keys();
+    delete client;
     return 0;
 }

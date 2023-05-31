@@ -70,8 +70,24 @@ X509 *deserialize_certificate(const vector<unsigned char> &serialized)
 
 string serialize_transfer(const Transfer &transfer)
 {
-    string st = transfer.sender + "|" + transfer.receiver + "|" + to_string(transfer.amount) + "|" + to_string(transfer.timestamp);
+    string st = transfer.sender + "," + transfer.receiver + "," + to_string(transfer.amount) + "," + to_string(transfer.timestamp);
     return st;
+}
+
+Transfer deserialize_transfer(const string &serialized)
+{
+    Transfer transfer;
+    stringstream ss(serialized);
+    string sender;
+    string unix_str;
+
+    getline(ss, transfer.sender, ',');
+    getline(ss, transfer.receiver, ',');
+    getline(ss, transfer.amount, ',');
+    getline(ss, unix_str, ',');
+    transfer.timestamp = stol(unix_str)
+
+    return transfer;   
 }
 
 string serialize_message_for_hmac(const Message &toSerialize)
@@ -217,13 +233,7 @@ User load_user_data(const string& file_path, const vector<unsigned char> &enc_ke
             while (getline(file, enc_transfer_data)) {
                 string transfer_data;
                 Crypto::aes_decrypt(enc_key, hex_to_bytes(enc_transfer_data), transfer_data);
-                stringstream ts(transfer_data);
-                Transfer transfer;
-                getline(ts, transfer.sender, '|');
-                getline(ts, transfer.receiver, '|');
-                ts >> transfer.amount;
-                ts.ignore();
-                ts >> transfer.timestamp;
+                Transfer transfer = deserialize_transfer(transfer_data);
                 user_data.transfer_history.push_back(transfer);
                 transfer_data.clear();
             }
