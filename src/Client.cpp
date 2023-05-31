@@ -2,6 +2,7 @@
 #include "Transaction.h"
 #include "Constants.h"
 #include "Utils.h"
+#include "Crypto.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
@@ -9,6 +10,8 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <openssl/x509.h>
+#include <arpa/inet.h>
 
 using namespace std;
 using namespace Constants;
@@ -40,8 +43,8 @@ void Client::connect_with_server()
 {
     int status, valread;
     // Create socket
-    socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (socket < 0)
+    client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_socket < 0)
     {
         exit_with_error("[-] Error: failed to create clients socket\n");
     }
@@ -50,15 +53,15 @@ void Client::connect_with_server()
     struct sockaddr_in server_address;
     memset(&server_address, 0, sizeof(server_address));
 
-    server_addres.sin_family = AF_INET;
-    server_addres.sin_port = htons(PORT);
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(SERVER_PORT);
 
-    if (inet_pton(AF_INET, "127.0.0.1", &server_addres.sin_addr) <= 0)
+    if (inet_pton(AF_INET, "127.0.0.1", &server_address.sin_addr) <= 0)
     {
-        exit_with_error("[-] Error: invalid address/ Address not supported \n")
+        exit_with_error("[-] Error: invalid address/ Address not supported \n");
     }
 
-    if ((status = connect(socket, (struct sockaddr *)&server_address, sizeof(server_address))) < 0)
+    if ((status = connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address))) < 0)
     {
         exit_with_error("[-] Error: Connection Failed \n");
     }
@@ -68,8 +71,8 @@ void Client::connect_with_server()
 void Client::destroy_session_keys()
 {
 #pragma optimize("", off)
-    memset(sess.aes_key.data(), 0, session.aes_key.size());
-    memset(sess.hmac_key.data(), 0, session.hmac_key.size());
+    memset(session.aes_key.data(), 0, session.aes_key.size());
+    memset(session.hmac_key.data(), 0, session.hmac_key.size());
 #pragma optimize("", on)
 }
 
@@ -88,9 +91,9 @@ void Client::handle_server_connection()
     // string session_id;
     Session session;
     Transfer transfer;
-    loged_in = false;
+    bool loged_in = false;
 
-    Client::get_session(socket);
+    Client::get_session(client_socket);
 
     int option;
     Client::display_options(loged_in);
@@ -122,15 +125,16 @@ void Client::handle_server_connection()
             }
             out_msg.hmac = bytes_to_hex(out_buff);
 
-            Crypto::aes_encrypt(session.aes_key, serialize_message(out_msg), out_buff);
-            send_with_header(socket, out_buff, session.session_id);
+            out_msg_string = serialize_message(out_msg);
+            Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
+            send_with_header(client_socket, out_buff, session.session_id);
 
             // Receiv server response
-            recv_with_header(socket, in_buff, in_msg_header);
+            recv_with_header(client_socket, in_buff, in_msg_header);
             if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
             {
                 cout << "[-] Key exchange failed: Can't decrypt session id" << endl;
-                exit_with_error("[-] Error: failed to decrypt session id")
+                exit_with_error("[-] Error: failed to decrypt session id");
             }
             in_msg = deserialize_message(in_msg_string);
 
@@ -172,10 +176,10 @@ void Client::handle_server_connection()
             out_msg.hmac = bytes_to_hex(out_buff);
 
             Crypto::aes_encrypt(session.aes_key, serialize_message(out_msg), out_buff);
-            send_with_header(socket, out_buff, session.session_id);
+            send_with_header(client_socket, out_buff, session.session_id);
 
             // Receiv server response
-            recv_with_header(socket, in_buff, in_msg_header);
+            recv_with_header(client_socket, in_buff, in_msg_header);
             if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
             {
                 cout << "[-] Can't decrypt server response" << endl;
@@ -207,10 +211,10 @@ void Client::handle_server_connection()
             out_msg.hmac = bytes_to_hex(out_buff);
 
             Crypto::aes_encrypt(session.aes_key, serialize_message(out_msg), out_buff);
-            send_with_header(new_socket, out_buff, session.session_id);
+            send_with_header(client_socket, out_buff, session.session_id);
 
             // Receiv server response
-            recv_with_header(socket, in_buff, in_msg_header);
+            recv_with_header(client_socket, in_buff, in_msg_header);
             if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
             {
                 cout << "[-] Can't decrypt server response" << endl;
@@ -244,10 +248,10 @@ void Client::handle_server_connection()
             out_msg.hmac = bytes_to_hex(out_buff);
 
             Crypto::aes_encrypt(session.aes_key, serialize_message(out_msg), out_buff);
-            send_with_header(socket, out_buff, session.session_id);
+            send_with_header(client_socket, out_buff, session.session_id);
 
             // Receiv server response
-            recv_with_header(socket, in_buff, in_msg_header);
+            recv_with_header(client_socket, in_buff, in_msg_header);
             if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
             {
                 cout << "[-] Can't decrypt server response" << endl;
@@ -287,9 +291,9 @@ void Client::handle_server_connection()
             out_msg.hmac = bytes_to_hex(out_buff);
 
             Crypto::aes_encrypt(session.aes_key, serialize_message(out_msg), out_buff);
-            send_with_header(socket, out_buff, session.session_id);
+            send_with_header(client_socket, out_buff, session.session_id);
 
-            recv_with_header(socket, in_buff, in_msg_header);
+            recv_with_header(client_socket, in_buff, in_msg_header);
             if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
             {
                 cout << "[-] Can't decrypt server response" << endl;
@@ -308,7 +312,7 @@ void Client::handle_server_connection()
             {
                 cout << "[+] Connection closed, destroying keys..." << endl;
                 Client::destroy_session_keys();
-                close(socket);
+                close(client_socket);
                 cout << "[+] Done! Exiting..." << endl;
                 exit(1);
             }
@@ -336,10 +340,10 @@ void Client::get_session()
     out_msg.content = Crypto::generate_nonce(NONCE_LENGTH);
     out_msg_string = serialize_message(out_msg);
     out_buff(out_msg_string.begin(), out_msg_string.end());
-    send_with_header(socket, out_buff, 0);
+    send_with_header(client_socket, out_buff, 0);
 
     // receiv server hello
-    recv_with_header(socket, in_buff, in_msg_header);
+    recv_with_header(client_socket, in_buff, in_msg_header);
     in_msg_string = string(in_buff.begin(), in_buff.end());
     in_msg = deserialize_message(in_msg_string);
 
@@ -371,14 +375,14 @@ void Client::get_session()
         exit_with_error("[-]Error failed to encrypt key exchange message");
     }
     // Key exchange
-    send_with_header(socket, out_buff, 0);
+    send_with_header(client_socket, out_buff, 0);
     
     in_msg.content.clear();
     memset(eph_pub_key.data(), 0, eph_pub_key.size());
     memset(eph_priv_key.data(), 0, eph_priv_key.size());
 
     // receiv server OK
-    recv_with_header(socket, in_buff, in_msg_header);
+    recv_with_header(client_socket, in_buff, in_msg_header);
     // decrypt with aes_key
     if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
     {

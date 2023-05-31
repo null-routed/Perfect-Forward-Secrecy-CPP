@@ -4,10 +4,13 @@
 #include <cstring>
 #include <openssl/pem.h>
 #include <openssl/bio.h>
+#include <arpa/inet.h>
 #include <iostream>
 #include <stdio.h>
 #include "Utils.h"
 #include "Transaction.h"
+#include "Crypto.h"
+#include "Constants.h"
 
 using namespace std;
 
@@ -78,14 +81,15 @@ Transfer deserialize_transfer(const string &serialized)
 {
     Transfer transfer;
     stringstream ss(serialized);
-    string sender;
+    string amount;
     string unix_str;
 
     getline(ss, transfer.sender, ',');
     getline(ss, transfer.receiver, ',');
-    getline(ss, transfer.amount, ',');
+    getline(ss, amount, ',');
+    transfer.amount = stod(amount);
     getline(ss, unix_str, ',');
-    transfer.timestamp = stol(unix_str)
+    transfer.timestamp = stol(unix_str);
 
     return transfer;   
 }

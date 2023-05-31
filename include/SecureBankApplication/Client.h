@@ -42,7 +42,7 @@ private:
     X509* ca_cert;
     X509_STORE* cert_store;
     Session session;
-    int socket;
+    int client_socket;
 };
 
 #endif // CLIENT_H

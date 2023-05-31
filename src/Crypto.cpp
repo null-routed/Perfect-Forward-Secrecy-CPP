@@ -2,6 +2,7 @@
 #include "Constants.h"
 #include "Utils.h"
 #include <cstring>
+#include <stdexcept>
 
 using namespace std;
 
