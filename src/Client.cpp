@@ -41,7 +41,7 @@ Client::~Client()
 // Looks good even though valread is never used
 void Client::connect_with_server()
 {
-    int status, valread;
+    int status;
     // Create socket
     client_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (client_socket < 0)
@@ -61,11 +61,11 @@ void Client::connect_with_server()
         exit_with_error("[-] Error: invalid address/ Address not supported \n");
     }
 
+    // Connect with server
     if ((status = connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address))) < 0)
     {
         exit_with_error("[-] Error: Connection Failed \n");
     }
-    // return socket
 }
 
 void Client::destroy_session_keys()
@@ -88,14 +88,15 @@ void Client::handle_server_connection()
     Message in_msg;
     Header in_msg_header;
 
-    // string session_id;
     Session session;
     Transfer transfer;
     bool loged_in = false;
 
+    // Start session with server
     Client::get_session(client_socket);
 
     int option;
+
     Client::display_options(loged_in);
     cout << "Enter the option number: ";
     cin >> option;
@@ -110,6 +111,7 @@ void Client::handle_server_connection()
                 cout << "Invalid option selected." << endl;
                 break;
             }
+
             // get username and password
             cout << "Enter username: ";
             cin >> session.username;
@@ -119,6 +121,8 @@ void Client::handle_server_connection()
             out_msg.command = LOGIN;
             out_msg.content = session.username + '|' + session.password;
             out_msg.timestamp = chrono::steady_clock::now();
+
+            // generate HMAC for login message
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
             {
                 exit_with_error("[-]Error: failed to generate HMAC");
@@ -131,13 +135,18 @@ void Client::handle_server_connection()
 
             // Receiv server response
             recv_with_header(client_socket, in_buff, in_msg_header);
+
+            // Decrypt message with AES key
             if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
             {
                 cout << "[-] Key exchange failed: Can't decrypt session id" << endl;
                 exit_with_error("[-] Error: failed to decrypt session id");
             }
+
+            // create message
             in_msg = deserialize_message(in_msg_string);
 
+            // Verify if HMAC of received message is correct
             if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), out_msg.hmac))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
@@ -159,6 +168,7 @@ void Client::handle_server_connection()
             cout << "Enter username of receiver: ";
             cin >> transfer.receiver;
 
+            // Make sure User can't send amount smaller than 0
             while (transfer.amount <= 0.0)
             {
                 cout << "Specify amount:" << endl;
@@ -273,6 +283,7 @@ void Client::handle_server_connection()
                 // separete transfers
                 stringstream ss(in_msg.content);
 
+                // Print all transfers untill variable ss is empty
                 while (getline(ss, transfer_str, '|');)
                 {
                     transfer = deserialize_transfer(transfer_str);
@@ -347,6 +358,7 @@ void Client::get_session()
     in_msg_string = string(in_buff.begin(), in_buff.end());
     in_msg = deserialize_message(in_msg_string);
 
+    // Extract ephemeral public key, signature and certificate
     stringstream ss(in_msg.content);
     string temp_str;
     getline(ss, temp_str, '-');
@@ -377,6 +389,7 @@ void Client::get_session()
     // Key exchange
     send_with_header(client_socket, out_buff, 0);
     
+    // Clear memory
     in_msg.content.clear();
     memset(eph_pub_key.data(), 0, eph_pub_key.size());
     memset(eph_priv_key.data(), 0, eph_priv_key.size());
@@ -413,23 +426,3 @@ void Client::display_options(bool loged_in)
     cout << "4. Show history of transfers" << endl;
     cout << "5. Safely close the connection to the server" << endl;
 }
-
-// Looks good
-// Transfer Client::get_transfer_details(string sender)
-// {
-//     Transfer transfer;
-//     trnsfer.amount = 0.0;
-//     transfer.sender = sender;
-//     cout << "Specify recipient:" << endl;
-//     cin >> transfer.receiver;
-
-//     while (transfer.amount <= 0.0)
-//     {
-//         cout << "Specify amount:" << endl;
-//         cin >> transfer.amount;
-//     }
-
-//     transfer.timestamp = time(0);
-
-//     return transfer;
-// }
