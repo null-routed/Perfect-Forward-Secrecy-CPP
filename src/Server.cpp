@@ -8,6 +8,7 @@
 #include <map>
 #include <iostream>
 #include <vector>
+#include <arpa/inet.h> 
 
 using namespace std;
 using namespace Constants;
@@ -27,7 +28,7 @@ Server::Server()
 
 Server::~Server()
 {
-    for(unordered_map<string, :string>::iterator it = sessions.begin(); it != sessions.end(); ++it){
+    for(unordered_map<string, Session>::iterator it = sessions.begin(); it != sessions.end(); ++it){
         Server::destroy_session_keys(it->second);
     }
     X509_free(own_cert);
@@ -35,17 +36,17 @@ Server::~Server()
     pthread_mutex_destroy(&sessions_mutex);
 }
 
-Server::handle_signal()
+void Server::handle_signal()
 {
     delete this;
     exit(1);
 }
 
-void Server::destroy_session_keys(Session &sess)
+void Server::destroy_session_keys(Session &session)
 {
 #pragma optimize("", off)
-    memset(sess.aes_key.data(), 0, session.aes_key.size());
-    memset(sess.hmac_key.data(), 0, session.hmac_key.size());
+    memset(session.aes_key.data(), 0, session.aes_key.size());
+    memset(session.hmac_key.data(), 0, session.hmac_key.size());
 #pragma optimize("", on)
 }
 
@@ -60,12 +61,12 @@ void Server::check_expired_sessions()
 
         // Iterating through all sessions, if the time since last ping is greater than TIMEOUT_TIME
         // we delete session keys and erase the session from the sessions map
-        for (unordered_map<string, Session>::iterator it = sessions.begin(); it != sessions.end())
+        for (unordered_map<string, Session>::iterator it = sessions.begin(); it != sessions.end();)
         {
-            chrono::duration<double> elapsed = chrono::system_clock::now() - p->second.last_ping;
+            chrono::duration<double> elapsed = chrono::system_clock::now() - it->second.last_ping;
             if (elapsed.count() > TIMEOUT_TIME)
             {
-                if (Server::destroy_session_keys(p->second))
+                if (Server::destroy_session_keys(it->second))
                 {
                     it = sessions.erase(it);
                 }
@@ -87,7 +88,7 @@ void Server::check_expired_sessions()
 void Server::start_server()
 {
 
-    signal(SIGINT, Server::handle_signal)
+    signal(SIGINT, Server::handle_signal);
 
     pthread_t checkThread;
     if (pthread_create(&checkThread, NULL, Server::check_expired_sessions, this))
@@ -96,7 +97,7 @@ void Server::start_server()
     }
 
     server_socket = socket(PF_INET, SOCK_STREAM, 0);
-    if (server_socket == -1)
+    if (server_socket < 0)
     {
         exit_with_error("[-] Fatal error while allocating socket");
     }
@@ -105,7 +106,7 @@ void Server::start_server()
     server_addr.sin_port = htons(SERVER_PORT);
     server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+    if (::bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
         exit_with_error("[-] Fatal error when binding socket");
     }
@@ -377,7 +378,7 @@ void Server::handle_client_connection(int new_socket)
             memset(eph_pub_key.data(), 0, eph_pub_key.size());
             memset(eph_priv_key.data(), 0, eph_priv_key.size());
 
-            out_msg = {SERVER_OK, :chrono::system_clock::now(), session_id, ""};
+            out_msg = {SERVER_HELLO, :chrono::system_clock::now(), session_id, ""};
             out_msg_string = serialize_message(out_msg);
             Crypto::aes_encrypt(sess.aes_key, out_msg_string, out_buff);
             send_with_header(new_socket, out_buff, session_id);

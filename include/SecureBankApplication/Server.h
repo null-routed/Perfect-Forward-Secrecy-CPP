@@ -26,13 +26,15 @@ public:
     Server();  
     ~Server(); 
 
+    static void Server::check_expired_sessions();
+
     // Function to start the server
     // The server starts the websocket server and starts listening for clients to serve
     void start_server();
 
     void check_expired_sessions();
 
-    bool destroy_session_keys();
+    void destroy_session_keys();
 
     // Function to handle a client connection
     void handle_client_connection(int clientSocket);

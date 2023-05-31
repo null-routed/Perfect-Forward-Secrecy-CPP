@@ -438,7 +438,7 @@ bool Crypto::hash_with_salt(const string &plaintext, vector<unsigned char> &salt
     return true;
 }
 
-bool Crypto::verifyHash(const string &plaintext, const vector<unsigned char> &hash)
+bool Crypto::verify_hash(const string &plaintext, const vector<unsigned char> &hash)
 {
 
     vector<unsigned char> salt(hash.begin(), hash.begin() + Constants::SALT_SIZE);

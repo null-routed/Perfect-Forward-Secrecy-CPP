@@ -8,10 +8,9 @@ SERVER_MAIN = $(SRC_DIR)/Server/main.cpp
 CLIENT_MAIN = $(SRC_DIR)/Client/main.cpp
 CPP_FILES = $(wildcard $(SRC_DIR)/*.cpp)
 SERVER_CPP_FILES = $(filter-out $(SRC_DIR)/Client.cpp,$(CPP_FILES))
-CLIENT_CPP_FILES = $(wildcard $(SRC_DIR)/*.cpp)
 CLIENT_CPP_FILES = $(filter-out $(SRC_DIR)/Server.cpp,$(CPP_FILES))
 
-all: dir $(TARGET1) $(TARGET2)
+all: dir $(TARGET1)
 
 dir:  
 	@mkdir -p $(TARGET_DIR)/Server
@@ -20,5 +19,5 @@ dir:
 $(TARGET1): $(SERVER_CPP_FILES) $(SERVER_MAIN)
 	$(CXX) $^ -o $@ $(CXXFLAGS)
 
-# $(TARGET2): $(CLIENT_CPP_FILES) $(CLIENT_MAIN)
-#	$(CXX) $^ -o $@ $(CXXFLAGS) 
+$(TARGET2): $(CLIENT_CPP_FILES) $(CLIENT_MAIN)
+	$(CXX) $^ -o $@ $(CXXFLAGS) 
