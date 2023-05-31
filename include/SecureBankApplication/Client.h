@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "Transaction.h"
+#include <openssl/x509.h>
 // #include "Constants.h"
 
 struct Session
@@ -24,7 +25,7 @@ public:
 
     void connect_with_server();
 
-    void handle_server_connection()
+    void handle_server_connection();
 
     void get_session(int socket);
 

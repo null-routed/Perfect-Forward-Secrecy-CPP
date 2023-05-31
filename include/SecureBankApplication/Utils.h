@@ -3,10 +3,9 @@
 
 #include <vector>
 #include <string>
-#include <sys/socketh>
-#include <openssl/x509h>
+#include <sys/socket.h>
+#include <openssl/x509.h>
 #include "Transaction.h"
-#include "Message.h"
 
 /**
 * @brief Reads a private key from a PEM file

@@ -65,7 +65,7 @@ private:
     // pthread mutex to access the Sessions shared variable
     pthread_mutex_t sessions_mutex;
     X509* own_cert; 
-    vector <unsigned char> enc_key;
+    std::vector <unsigned char> enc_key;
     int server_socket;
 };
 

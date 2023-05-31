@@ -87,7 +87,7 @@ void Server::check_expired_sessions()
 void Server::start_server()
 {
 
-    signal(SIGINT, Server::handle_signal);
+    signal(SIGINT, Server::handle_signal)
 
     pthread_t checkThread;
     if (pthread_create(&checkThread, NULL, Server::check_expired_sessions, this))

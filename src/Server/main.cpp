@@ -2,6 +2,6 @@
 #include <iostream>
 
 int main() {
-    Server s = new Server();
-    s.start_server();
+    Server* s = new Server();
+    s->start_server();
 }
