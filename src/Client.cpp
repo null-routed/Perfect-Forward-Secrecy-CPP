@@ -72,10 +72,8 @@ void Client::connect_with_server()
 
 void Client::destroy_session_keys()
 {
-#pragma optimize("", off)
     memset(session.aes_key.data(), 0, session.aes_key.size());
     memset(session.hmac_key.data(), 0, session.hmac_key.size());
-#pragma optimize("", on)
 }
 
 void Client::handle_server_connection()
