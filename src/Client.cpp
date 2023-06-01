@@ -37,7 +37,7 @@ Client::Client()
 
 Client::~Client()
 {
-    X509_store_free(cert_store);
+    X509_STORE_free(cert_store);
 }
 
 // Looks good even though valread is never used
@@ -122,7 +122,8 @@ void Client::handle_server_connection()
             cin >> session.password;
             out_msg.command = LOGIN;
             out_msg.content = session.username + '|' + session.password;
-            out_msg.timestamp = chrono::steady_clock::now();
+            out_msg.timestamp = chrono::system_clock::now();
+
 
             // generate HMAC for login message
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
@@ -179,7 +180,8 @@ void Client::handle_server_connection()
 
             out_msg.command = TRANSFER;
             out_msg.content = transfer.receiver + '-' + to_string(transfer.amount);
-            out_msg.timestamp = chrono::steady_clock::now();
+            out_msg.timestamp = chrono::system_clock::now();
+
 
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
             {
@@ -214,7 +216,7 @@ void Client::handle_server_connection()
 
         case GET_BALANCE:
             out_msg.command = GET_BALANCE;
-            out_msg.timestamp = chrono::steady_clock::now();
+            out_msg.timestamp = chrono::system_clock::now();
 
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
             {
@@ -252,7 +254,8 @@ void Client::handle_server_connection()
 
         case GET_TRANSFER_HISTORY:
             out_msg.command = GET_TRANSFER_HISTORY;
-            out_msg.timestamp = chrono::steady_clock::now();
+            out_msg.timestamp = chrono::system_clock::now();
+
 
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
             {
@@ -297,7 +300,8 @@ void Client::handle_server_connection()
             break;
         case CLOSE:
             out_msg.command = CLOSE;
-            out_msg.timestamp = chrono::stead_clock::now();
+            out_msg.timestamp = chrono::system_clock::now();
+
 
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
             {
@@ -386,7 +390,8 @@ void Client::get_session()
 
     out_msg.command = KEY_EXCHANGE;
     out_msg.content = bytes_to_hex(session.hmac_key) + '-' + bytes_to_hex(session.aes_key);
-    if (Crypto::rsa_encrypt(eph_pub_key, serialize_message(out_msg), out_buff) == -1)
+    out_msg_string = serialize_message(out_msg);
+    if (Crypto::rsa_encrypt(eph_pub_key, out_msg_string, out_buff) == -1)
     {
         exit_with_error("[-]Error failed to encrypt key exchange message");
     }
