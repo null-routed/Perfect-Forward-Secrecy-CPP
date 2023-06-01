@@ -69,6 +69,7 @@ void Client::connect_with_server()
     {
         exit_with_error("[-] Error: Connection Failed \n");
     }
+    cout << "conected" << endl;
 }
 
 void Client::destroy_session_keys()
@@ -359,10 +360,12 @@ void Client::get_session()
     out_msg.content = bytes_to_hex(Crypto::generate_nonce(NONCE_LENGTH));
     out_msg_string = serialize_message(out_msg);
     vector<unsigned char> out_buff(out_msg_string.begin(), out_msg_string.end());
+    cout << "sending hello" << endl;
     send_with_header(client_socket, out_buff, 0);
 
     // receiv server hello
     recv_with_header(client_socket, in_buff, in_msg_header);
+    cout << "received hello" << endl;
     in_msg_string = string(in_buff.begin(), in_buff.end());
     in_msg = deserialize_message(in_msg_string);
 
@@ -379,6 +382,12 @@ void Client::get_session()
     // Deserialize the certificate and extract the public key
     X509 *cert = deserialize_certificate(cert_vector);
     vector<unsigned char> server_pub_key = Crypto::read_public_key_from_cert(cert);
+
+    cout << Crypto::verify_signature(in_msg_string, signature, server_pub_key) << endl;
+    cout << Crypto::verify_certificate(cert_store, cert) << endl;
+    cout << (Crypto::read_owner_from_cert(cert) != EXPECTED_CERT_OWNER) << endl;
+    cout << Crypto::read_owner_from_cert(cert) << endl;
+
     if (!Crypto::verify_signature(in_msg_string, signature, server_pub_key) || !Crypto::verify_certificate(cert_store, cert) || Crypto::read_owner_from_cert(cert) != EXPECTED_CERT_OWNER)
     {
         exit_with_error("[-] Error");
