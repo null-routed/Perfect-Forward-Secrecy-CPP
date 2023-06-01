@@ -120,7 +120,7 @@ int Crypto::aes_encrypt(const vector<unsigned char> &key, string &message, vecto
     unsigned char iv[iv_length];
 
     // Checking for integer overflow
-    if (message.size() + 1 > INT_MAX - block_size)
+    if (message.size() + 1 > static_cast<unsigned long>(INT_MAX - block_size))
     {
         return -1;
     }
