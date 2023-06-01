@@ -1,19 +1,20 @@
 #include <cstring>
 #include <stdexcept>
+
 #include "Crypto.h"
 #include "Constants.h"
 #include "Utils.h"
 
 using namespace std;
 
-std::string read_owner_from_cert(X509* cert) {
+std::string Crypto::read_owner_from_cert(X509* cert) {
     X509_NAME* owner_name = X509_get_subject_name(cert);
     char buffer[256];
     X509_NAME_oneline(owner_name, buffer, sizeof(buffer));
     return std::string(buffer);
 }
 
-bool verify_certificate(X509_STORE *store, X509* cert){
+bool Crypto::verify_certificate(X509_STORE *store, X509* cert){
     X509_STORE_CTX *ctx = X509_STORE_CTX_new();
 
     if (X509_STORE_CTX_init(ctx, store, cert, NULL) != 1) {
@@ -28,7 +29,7 @@ bool verify_certificate(X509_STORE *store, X509* cert){
     return verify_result;
 }
 
-vector<unsigned char> read_public_key_from_cert(X509* cert) {
+vector<unsigned char> Crypto::read_public_key_from_cert(X509* cert) {
     if (cert == nullptr) {
         throw runtime_error("Invalid X509 certificate pointer.");
     }
@@ -52,7 +53,7 @@ vector<unsigned char> read_public_key_from_cert(X509* cert) {
     return key;
 }
 
-int rsa_encrypt(const vector<unsigned char>& pub_key, string& message, vector<unsigned char>& encrypted)
+int Crypto::rsa_encrypt(const vector<unsigned char>& pub_key, string& message, vector<unsigned char>& encrypted)
 {
     RSA* rsa = RSA_new();
     BIO* bio = BIO_new_mem_buf(pub_key.data(), (int)pub_key.size());
@@ -84,7 +85,7 @@ int rsa_encrypt(const vector<unsigned char>& pub_key, string& message, vector<un
     return encrypted_length;
 }
 
-int rsa_decrypt(const vector<unsigned char>& priv_key, const vector<unsigned char>& encrypted, string& message)
+int Crypto::rsa_decrypt(const vector<unsigned char>& priv_key, const vector<unsigned char>& encrypted, string& message)
 {
     RSA* rsa = RSA_new();
     BIO* bio = BIO_new_mem_buf(priv_key.data(), (int)priv_key.size());
