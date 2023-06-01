@@ -1,7 +1,8 @@
+#include <cstring>
+
 #include "Crypto.h"
 #include "Constants.h"
 #include "Utils.h"
-#include <cstring>
 
 using namespace std;
 
@@ -287,7 +288,7 @@ int Crypto::aes_decrypt(const vector<unsigned char> &key, const vector<unsigned 
     return totallen;
 };
 
-vector<unsigned char> Crypto::generateNonce(int length)
+vector<unsigned char> Crypto::generate_nonce(int length)
 {
     vector<unsigned char> buffer;
     if (RAND_poll() != 1)
@@ -401,7 +402,7 @@ bool Crypto::verify_signature(const string &message, const vector<unsigned char>
 
 bool Crypto::hash_with_salt(const string &plaintext, vector<unsigned char> &saltedHash, vector<unsigned char> salt)
 {
-    salt = salt.empty() ? Crypto::generateNonce(Constants::SALT_SIZE) : salt;
+    salt = salt.empty() ? Crypto::generate_nonce(Constants::SALT_SIZE) : salt;
 
     string toHash = bytes_to_hex(salt) + plaintext;
     vector<unsigned char> digest(EVP_MD_size(EVP_sha256()));

@@ -1,14 +1,16 @@
-#include "Server.h"
-#include "Constants.h"
-#include "Transaction.h"
-#include "Utils.h"
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
-#include <map>
+#include <arpa/inet.h>
 #include <iostream>
-#include <vector>
-#include <arpa/inet.h> 
+#include <cstdlib>
+
+#include "Server.h"
+#include "Constants.h"
+#include "Transaction.h"
+#include "Crypto.h"
+#include "Utils.h"
 
 using namespace std;
 using namespace Constants;
@@ -18,7 +20,7 @@ Server::Server()
     pthread_mutex_init(&sessions_mutex, NULL);
     try
     {
-        own_cert = read_certificate_from_pem();
+        own_cert = read_certificate_from_pem(CERT_PATH + "server_cert.pem");
     }
     catch (const runtime_error &e)
     {
@@ -28,18 +30,15 @@ Server::Server()
 
 Server::~Server()
 {
-    for(unordered_map<string, Session>::iterator it = sessions.begin(); it != sessions.end(); ++it){
+    pthread_mutex_lock(&sessions_mutex);
+    for (unordered_map<string, Session>::iterator it = sessions.begin(); it != sessions.end(); ++it)
+    {
         Server::destroy_session_keys(it->second);
     }
+
     X509_free(own_cert);
     close(server_socket);
     pthread_mutex_destroy(&sessions_mutex);
-}
-
-void Server::handle_signal()
-{
-    delete this;
-    exit(1);
 }
 
 void Server::destroy_session_keys(Session &session)
@@ -48,6 +47,13 @@ void Server::destroy_session_keys(Session &session)
     memset(session.aes_key.data(), 0, session.aes_key.size());
     memset(session.hmac_key.data(), 0, session.hmac_key.size());
 #pragma optimize("", on)
+}
+
+void* Server::check_expired_sessions_wrapper(void* arg)
+{
+    Server *server = static_cast<Server *>(arg);
+    server->check_expired_sessions();
+    return nullptr;
 }
 
 void Server::check_expired_sessions()
@@ -66,14 +72,8 @@ void Server::check_expired_sessions()
             chrono::duration<double> elapsed = chrono::system_clock::now() - it->second.last_ping;
             if (elapsed.count() > TIMEOUT_TIME)
             {
-                if (Server::destroy_session_keys(it->second))
-                {
-                    it = sessions.erase(it);
-                }
-                else
-                {
-                    ++it;
-                }
+                Server::destroy_session_keys(it->second);
+                it = sessions.erase(it);
             }
             else
             {
@@ -88,10 +88,8 @@ void Server::check_expired_sessions()
 void Server::start_server()
 {
 
-    signal(SIGINT, Server::handle_signal);
-
-    pthread_t checkThread;
-    if (pthread_create(&checkThread, NULL, Server::check_expired_sessions, this))
+    pthread_t check_thread;
+    if (pthread_create(&check_thread, NULL, &Server::check_expired_sessions_wrapper, this))
     {
         exit_with_error("[-] Fatal error while starting thread");
     }
@@ -140,12 +138,14 @@ void Server::start_server()
     }
 }
 
-Message Server::generate_server_hello(string client_nonce, string session_id)
+Message Server::generate_server_hello(string client_nonce, string session_id, vector<unsigned char> &eph_pub_key)
 {
-    Session session = sessions.find(session_id);
+    Session session = sessions.find(session_id)->second;
     Message server_hello;
     server_hello.command = SERVER_HELLO;
-    server_hello.content = bytes_to_hex(session.eph_pub_key) + "-" + Crypto::generate_signature(client_nonce + bytes_to_hex(session.eph_pub_key)) + "-" + bytes_to_hex(serialize_certificate(own_cert));
+    vector<unsigned char> signature;
+    Crypto::generate_signature(priv_key, client_nonce + bytes_to_hex(eph_pub_key), signature);
+    server_hello.content = bytes_to_hex(eph_pub_key) + "-" + bytes_to_hex(signature) + "-" + bytes_to_hex(serialize_certificate(own_cert));
 }
 
 string Server::generate_session()
@@ -153,11 +153,10 @@ string Server::generate_session()
     string session_id;
     do
     {
-        session_id = byte_to_hex(Crypto::generate_nonce(8));
+        session_id = bytes_to_hex(Crypto::generate_nonce(8));
     } while (sessions.find(session_id) != sessions.end());
 
     Session session;
-    Crypto::generate_key_pair(session.eph_priv_key, session.eph_pub_key);
     session.last_ping = chrono::system_clock::now();
     sessions[session_id] = session;
     sessions[session_id].user = "";
@@ -181,20 +180,22 @@ void Server::handle_client_connection(int new_socket)
     string session_id;
     Session sess;
 
+    size_t pos;
+
     if (recv_with_header(new_socket, in_buff, in_msg_header) == -1)
     {
         return;
     }
 
-    if (header.sender)
+    if (in_msg_header.sender)
     {
-        session_id = to_string(header.sender);
+        session_id = to_string(in_msg_header.sender);
         unordered_map<string, Session>::iterator it = sessions.find(session_id);
         if (it == sessions.end())
         {
             out_msg.command = INVALID_SESSION;
             out_msg_string = serialize_message(out_msg);
-            out_buff(out_msg_string.begin(), out_msg_string.end());
+            out_buff.assign(out_msg_string.begin(), out_msg_string.end());
             send_with_header(new_socket, out_buff, 0);
             return;
         }
@@ -203,29 +204,33 @@ void Server::handle_client_connection(int new_socket)
         in_msg = deserialize_message(in_msg_string);
 
         // Checking integrity, authenticity and replay attacks
-        chrono::duration<long long, milli> diff = chrono::system_clock::now() - in_msg.timestamp;
-        if (!Crypto::verify_hmac(sess.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff) > RECV_WINDOW || in_msg.timestamp == sess.last_ping)
+        chrono::duration<long long, milli> diff = chrono::duration_cast<chrono::duration<long long, milli>>(chrono::system_clock::now() - in_msg.timestamp);
+        if (!Crypto::verify_hmac(sess.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff.count()) > RECV_WINDOW || in_msg.timestamp > sess.last_ping)
         {
             // invalidating the session
-            msg.command = -1;
+            in_msg.command = -1;
         }
 
-        out_msg.nonce = in_msg.nonce;
+        out_msg.timestamp = in_msg.timestamp;
         out_msg.command = SUCCESS;
-        sess.last_ping = chrono::system_clock::now();
+        sess.last_ping = in_msg.timestamp;
+
+        User usr, receiver;
+        string username, password, receiver_str;
+        double amount;
+        int n_transfers;
 
         switch (in_msg.command)
         {
         case LOGIN:
 
             out_msg.content = "";
-            size_t pos = msg.content.find('-');
-            string username = in_msg.content.substr(0, pos);
-            string password = in_msg.content.substr(pos + 1);
-
+            pos = in_msg.content.find('-');
+            username = in_msg.content.substr(0, pos);
+            password = in_msg.content.substr(pos + 1);
             try
             {
-                User usr = load_user_data(BASE_PATH + username, enc_key);
+                usr = load_user_data(BASE_PATH + username, enc_key);
             }
             catch (const runtime_error &e)
             {
@@ -234,7 +239,7 @@ void Server::handle_client_connection(int new_socket)
                 break;
             }
 
-            if (Crypto::veryify_hash(password, hex_to_bytes(usr.password)))
+            if (Crypto::verify_hash(password, hex_to_bytes(usr.hashed_password)))
             {
                 sess.user = username;
             }
@@ -252,13 +257,14 @@ void Server::handle_client_connection(int new_socket)
                 break;
             }
             out_msg.content = "";
-            size_t pos = msg.content.find('-');
-            double amount = stod(in_msg.content.substr(0, pos));
-            string receiver_str = in_msg.content.substr(pos + 1);
+            pos = in_msg.content.find('-');
+            amount = stod(in_msg.content.substr(0, pos));
+            receiver_str = in_msg.content.substr(pos + 1);
+
             try
             {
-                User sender = load_user_data(BASE_PATH + sess.user, enc_key);
-                User receiver = load_user_data(BASE_PATH + receiver_str, enc_key);
+                usr = load_user_data(BASE_PATH + sess.user, enc_key);
+                receiver = load_user_data(BASE_PATH + receiver_str, enc_key);
             }
             catch (const runtime_error &e)
             {
@@ -267,19 +273,19 @@ void Server::handle_client_connection(int new_socket)
                 break;
             }
 
-            if (amount <= 0 || sender.balance < amount)
+            if (amount <= 0 || usr.balance < amount)
             {
                 out_msg.command = INVALID_AMOUNT;
             }
             else
             {
-                Transfer t = {sender.username, receiver.username, amount, time(nullptr)};
-                sender.transfer_history.push_back(t);
+                Transfer t = {usr.username, receiver.username, amount, time(nullptr)};
+                usr.transfer_history.push_back(t);
                 receiver.transfer_history.push_back(t);
-                sender.balance -= amount;
+                usr.balance -= amount;
                 receiver.balance += amount;
                 write_user_data(BASE_PATH + sess.user, enc_key);
-                write_user_data(BASE_PATH + receiver_str, enc_key)
+                write_user_data(BASE_PATH + receiver_str, enc_key);
             }
 
             break;
@@ -291,7 +297,7 @@ void Server::handle_client_connection(int new_socket)
                 break;
             }
 
-            User usr = load_user_data(BASE_PATH + sess.user, enc_key);
+            usr = load_user_data(BASE_PATH + sess.user, enc_key);
             out_msg.content = to_string(usr.balance);
             break;
 
@@ -302,9 +308,9 @@ void Server::handle_client_connection(int new_socket)
                 break;
             }
 
-            User usr = load_user_data(BASE_PATH + sess.user, enc_key);
+            usr = load_user_data(BASE_PATH + sess.user, enc_key);
 
-            int n_transfers = min(MAX_TRANSFERS, usr.transfer_history.size());
+            n_transfers = min(MAX_TRANSFERS, static_cast<int>(usr.transfer_history.size()));
             for (int i = 0; i < n_transfers; i++)
             {
                 out_msg.content += serialize_transfer(usr.transfer_history[usr.transfer_history.size() - i - 1]);
@@ -325,7 +331,8 @@ void Server::handle_client_connection(int new_socket)
         Crypto::generate_hmac(sess.hmac_key, serialize_message_for_hmac(out_msg), out_buff);
         out_msg.hmac = bytes_to_hex(out_buff);
 
-        Crypto::aes_encrypt(sess.aes_key, serialize_message(out_msg), out_buff);
+        out_msg_string = serialize_message(out_msg);
+        Crypto::aes_encrypt(sess.aes_key, out_msg_string, out_buff);
         send_with_header(new_socket, out_buff, session_id);
 
         if (must_delete)
@@ -343,8 +350,9 @@ void Server::handle_client_connection(int new_socket)
             vector<unsigned char> eph_pub_key;
             session_id = Server::generate_session();
             sess = sessions.find(session_id)->second;
-            out_msg_string = serialize_message(Server::generate_server_hello(in_msg.content, session_id));
-            out_buff(out_msg_string.begin(), out_msg_string.end());
+            Crypto::generate_key_pair(eph_priv_key, eph_pub_key);
+            out_msg_string = serialize_message(Server::generate_server_hello(in_msg.content, session_id, eph_pub_key));
+            out_buff.assign(out_msg_string.begin(), out_msg_string.end());
             if (send_with_header(new_socket, out_buff, 0) == -1)
             {
                 cout << "[-] Key exchange failed: socket error" << endl;
@@ -360,17 +368,17 @@ void Server::handle_client_connection(int new_socket)
             if (Crypto::rsa_decrypt(eph_priv_key, in_buff, in_msg_string) == -1)
             {
                 cout << "[-] Key exchange failed: Can't decrypt session keys" << endl;
-                return
+                return;
             }
             in_msg = deserialize_message(in_msg_string);
             if (in_msg.command != KEY_EXCHANGE)
             {
                 in_msg.content.clear();
                 cout << "[-] Key exchange failed: wrong command" << endl;
-                return
+                return;
             }
             // saving the key in the session struct and cleaning the string to make sure no sensitive data is stored
-            size_t pos = msg.content.find('-');
+            pos = in_msg.content.find('-');
             sess.aes_key = hex_to_bytes(in_msg.content.substr(0, pos));
             sess.hmac_key = hex_to_bytes(in_msg.content.substr(pos + 1));
 
@@ -378,7 +386,7 @@ void Server::handle_client_connection(int new_socket)
             memset(eph_pub_key.data(), 0, eph_pub_key.size());
             memset(eph_priv_key.data(), 0, eph_priv_key.size());
 
-            out_msg = {SERVER_HELLO, :chrono::system_clock::now(), session_id, ""};
+            out_msg = {SERVER_OK, chrono::system_clock::now(), session_id, ""};
             out_msg_string = serialize_message(out_msg);
             Crypto::aes_encrypt(sess.aes_key, out_msg_string, out_buff);
             send_with_header(new_socket, out_buff, session_id);
@@ -387,7 +395,7 @@ void Server::handle_client_connection(int new_socket)
         {
             out_msg.command = INVALID_PARAMS;
             out_msg_string = serialize_message(out_msg);
-            out_buff(out_msg_string.begin(), out_msg_string.end());
+            out_buff.assign(out_msg_string.begin(), out_msg_string.end());
             send_with_header(new_socket, out_buff, 0);
         }
     }

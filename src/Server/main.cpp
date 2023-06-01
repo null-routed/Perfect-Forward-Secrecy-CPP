@@ -1,7 +1,18 @@
 #include "Server.h"
 #include <iostream>
+#include <csignal>
 
-int main() {
-    Server* s = new Server();
+Server *s;
+
+void handle_signal(int signal)
+{
+    delete s;
+    exit(signal);
+}
+
+int main()
+{
+    signal(SIGINT, &handle_signal);
+    s = new Server();
     s->start_server();
 }

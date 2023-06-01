@@ -102,7 +102,7 @@ namespace Crypto {
      * @param length 
      * @return std::vector<unsigned char> 
      */
-    std::vector<unsigned char> generateNonce(int length);
+    std::vector<unsigned char> generate_nonce(int length);
 
     /**
      * @brief Generates a signature on message using a private_key
