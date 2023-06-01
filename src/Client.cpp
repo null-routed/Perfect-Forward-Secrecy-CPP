@@ -24,7 +24,7 @@ Client::Client()
     cert_store = X509_STORE_new();
     try
     {
-        ca_cert = read_certificate_from_pem(CERT_PATH + "ca_cert.pem"); // missing directory
+        ca_cert = read_certificate_from_pem(string(CERT_PATH) + "ca_cert.pem"); // missing directory
     }
     catch (runtime_error &e)
     {

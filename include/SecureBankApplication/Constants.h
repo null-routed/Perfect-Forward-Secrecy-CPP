@@ -34,7 +34,6 @@ namespace Constants {
     const int INVALID_SESSION = 14;
     
     const std::string BASE_PATH = "";
-    const std::string CERT_PATH = "../cert/";
     const std::string EXPECTED_CERT_OWNER = "/CN=127.0.0.1:8080";
 
 }

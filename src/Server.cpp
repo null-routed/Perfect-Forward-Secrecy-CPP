@@ -20,9 +20,9 @@ Server::Server()
     pthread_mutex_init(&sessions_mutex, NULL);
     try
     {
-        own_cert = read_certificate_from_pem(CERT_PATH + "server_cert.pem");
-        priv_key = read_private_key_from_pem(CERT_PATH + "server_key.pem");
-        enc_key = read_aes_key(CERT_PATH + "aes.key");
+        own_cert = read_certificate_from_pem(string(CERT_PATH) + "server_cert.pem");
+        priv_key = read_private_key_from_pem(string(CERT_PATH) + "server_key.pem");
+        enc_key = read_aes_key(string(CERT_PATH) + "aes.key");
     }
     catch (const runtime_error &e)
     {
