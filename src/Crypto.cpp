@@ -280,9 +280,7 @@ int Crypto::aes_decrypt(const vector<unsigned char> &key, const vector<unsigned 
     decryptedMessage.assign(plaintext.begin(), plaintext.begin() + totallen);
 
     // overwriting the plaintext temp buffer with zeroes
-#pragma optimize("", off)
     memset(plaintext.data(), 0, plaintext.size());
-#pragma optimisze("", on)
 
     EVP_CIPHER_CTX_free(ctx);
     return totallen;

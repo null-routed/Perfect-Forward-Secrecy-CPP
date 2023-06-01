@@ -43,10 +43,8 @@ Server::~Server()
 
 void Server::destroy_session_keys(Session &session)
 {
-#pragma optimize("", off)
     memset(session.aes_key.data(), 0, session.aes_key.size());
     memset(session.hmac_key.data(), 0, session.hmac_key.size());
-#pragma optimize("", on)
 }
 
 void* Server::check_expired_sessions_wrapper(void* arg)
