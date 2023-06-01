@@ -47,7 +47,7 @@ std::string serialize_transfer(const Transfer &transfer);
 * @param Serialized string
 * @return transfer Transfer object to serialize
 */
-Transfer deserialize_transfer(const string &serialized)
+Transfer deserialize_transfer(const std::string &serialized);
 
 /**
 * @brief Serializes a Message object for HMAC
@@ -83,6 +83,17 @@ std::vector<unsigned char> serialize_header(Header header);
 * @return Deserialized Header object
 */
 Header deserialize_header(const unsigned char *buffer);
+
+/**
+* @brief Sends message with header
+* @param socket socket
+* @param data_bufer bufer variable with data
+* @param sender number of sender
+* @return if sucesful
+*/
+int send_with_header(int socket, const vector<unsigned char> &data_buffer, uint32_t sender);
+
+int recv_with_header(int socket, vector<unsigned char> &data_buffer, Header &header);
 
 /**
 * @brief Converst a vector of bytes to a hexadecimal string
