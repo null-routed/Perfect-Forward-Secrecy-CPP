@@ -92,23 +92,23 @@ void Client::handle_server_connection()
 
     Session session;
     Transfer transfer;
-    bool loged_in = false;
+    bool logged_in = false;
 
     // Start session with server
     Client::get_session();
 
-    int option;
-
-    Client::display_options(loged_in);
-    cout << "Enter the option number: ";
-    cin >> option;
+    int option = -1;
 
     while (option != CLOSE)
+
     {
+        Client::display_options(logged_in);
+        cout << "Enter the option number: ";
+        cin >> option;
         switch (option)
         {
         case LOGIN:
-            if (loged_in)
+            if (logged_in)
             {
                 cout << "Invalid option selected." << endl;
                 break;
@@ -123,7 +123,6 @@ void Client::handle_server_connection()
             out_msg.command = LOGIN;
             out_msg.content = session.username + '|' + session.password;
             out_msg.timestamp = chrono::system_clock::now();
-
 
             // generate HMAC for login message
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
@@ -162,7 +161,7 @@ void Client::handle_server_connection()
             }
             else
             {
-                loged_in = true;
+                logged_in = true;
             }
             break;
 
@@ -181,7 +180,6 @@ void Client::handle_server_connection()
             out_msg.command = TRANSFER;
             out_msg.content = transfer.receiver + '-' + to_string(transfer.amount);
             out_msg.timestamp = chrono::system_clock::now();
-
 
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
             {
@@ -256,7 +254,6 @@ void Client::handle_server_connection()
             out_msg.command = GET_TRANSFER_HISTORY;
             out_msg.timestamp = chrono::system_clock::now();
 
-
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
             {
                 exit_with_error("[-]Error: failed to generate HMAC");
@@ -302,7 +299,6 @@ void Client::handle_server_connection()
             out_msg.command = CLOSE;
             out_msg.timestamp = chrono::system_clock::now();
 
-
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
             {
                 exit_with_error("[-] Error: failed to generate HMAC");
@@ -336,7 +332,7 @@ void Client::handle_server_connection()
                 exit(1);
             }
             break;
-            
+
         default:
             cout << "Invalid option selected." << endl;
         }
@@ -360,12 +356,10 @@ void Client::get_session()
     out_msg.content = bytes_to_hex(Crypto::generate_nonce(NONCE_LENGTH));
     out_msg_string = serialize_message(out_msg);
     vector<unsigned char> out_buff(out_msg_string.begin(), out_msg_string.end());
-    cout << "sending hello" << endl;
-    send_with_header(client_socket, out_buff, 0);
 
+    send_with_header(client_socket, out_buff, 0);
     // receiv server hello
     recv_with_header(client_socket, in_buff, in_msg_header);
-    cout << "received hello" << endl;
     in_msg_string = string(in_buff.begin(), in_buff.end());
     in_msg = deserialize_message(in_msg_string);
 
@@ -383,12 +377,7 @@ void Client::get_session()
     X509 *cert = deserialize_certificate(cert_vector);
     vector<unsigned char> server_pub_key = Crypto::read_public_key_from_cert(cert);
 
-    cout << Crypto::verify_signature(in_msg_string, signature, server_pub_key) << endl;
-    cout << Crypto::verify_certificate(cert_store, cert) << endl;
-    cout << (Crypto::read_owner_from_cert(cert) != EXPECTED_CERT_OWNER) << endl;
-    cout << Crypto::read_owner_from_cert(cert) << endl;
-
-    if (!Crypto::verify_signature(in_msg_string, signature, server_pub_key) || !Crypto::verify_certificate(cert_store, cert) || Crypto::read_owner_from_cert(cert) != EXPECTED_CERT_OWNER)
+    if (!Crypto::verify_signature(out_msg.content + bytes_to_hex(eph_pub_key), signature, server_pub_key) || !Crypto::verify_certificate(cert_store, cert) || Crypto::read_owner_from_cert(cert) != EXPECTED_CERT_OWNER)
     {
         exit_with_error("[-] Error");
     }
@@ -398,7 +387,7 @@ void Client::get_session()
     session.aes_key = Crypto::generate_nonce(AES_LENGTH);
 
     out_msg.command = KEY_EXCHANGE;
-    out_msg.content = bytes_to_hex(session.hmac_key) + '-' + bytes_to_hex(session.aes_key);
+    out_msg.content = bytes_to_hex(session.aes_key) + '-' + bytes_to_hex(session.hmac_key);
     out_msg_string = serialize_message(out_msg);
     if (Crypto::rsa_encrypt(eph_pub_key, out_msg_string, out_buff) == -1)
     {
@@ -406,14 +395,13 @@ void Client::get_session()
     }
     // Key exchange
     send_with_header(client_socket, out_buff, 0);
-    
+
     // Clear memory
     in_msg.content.clear();
     memset(eph_pub_key.data(), 0, eph_pub_key.size());
 
     // receiv server OK
     recv_with_header(client_socket, in_buff, in_msg_header);
-    // decrypt with aes_key
     if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
     {
         cout << "[-] Key exchange failed: Can't decrypt session id" << endl;
@@ -425,14 +413,13 @@ void Client::get_session()
         cout << "[-] Key exchange failed: wrong command" << endl;
     }
 
-    session.session_id = stoi(in_msg.content);
+    session.session_id = static_cast<uint32_t>(stoul(in_msg.content));
 }
 
-// Looks good, but I would also add a 5th option "CLOSE"
-void Client::display_options(bool loged_in)
+void Client::display_options(bool logged_in)
 {
     cout << "Choose one of the options:" << endl;
-    if (loged_in)
+    if (!logged_in)
     {
         cout << "1. Log in" << endl;
     }

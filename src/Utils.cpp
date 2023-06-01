@@ -14,9 +14,11 @@
 
 using namespace std;
 
-vector<unsigned char> read_aes_key(const string& file_name) {
+vector<unsigned char> read_aes_key(const string &file_name)
+{
     ifstream file(file_name, ios::binary);
-    if(!file.is_open()){
+    if (!file.is_open())
+    {
         throw runtime_error("Failed to open AES key file");
     }
     vector<unsigned char> key(istreambuf_iterator<char>(file), {});
@@ -26,7 +28,8 @@ vector<unsigned char> read_aes_key(const string& file_name) {
 vector<unsigned char> read_private_key_from_pem(const string &file_path)
 {
     ifstream file(file_path);
-    if(!file.is_open()){
+    if (!file.is_open())
+    {
         throw runtime_error("Failed to open private key file");
     }
     string priv_key_str((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
@@ -103,7 +106,7 @@ Transfer deserialize_transfer(const string &serialized)
     getline(ss, unix_str, ',');
     transfer.timestamp = stol(unix_str);
 
-    return transfer;   
+    return transfer;
 }
 
 string serialize_message_for_hmac(const Message &toSerialize)
@@ -149,12 +152,12 @@ vector<unsigned char> serialize_header(Header header)
     return serialized;
 }
 
-Header deserialize_header(const unsigned char *buffer)
+Header deserialize_header(const vector<unsigned char> &header_buffer)
 {
     Header header;
-    memcpy(&header, buffer, sizeof(header));
-    header.length = ntohl(header.length);
-    header.sender = ntohl(header.sender);
+    memcpy(&header, header_buffer.data(), sizeof(header));
+    header.length = ntohl(header.length); // Convert to host byte order
+    header.sender = ntohl(header.sender); // Convert to host byte order
     return header;
 }
 
@@ -210,34 +213,42 @@ void print_vector(vector<unsigned char> &text)
     cout << endl;
 }
 
-void write_user_data(const string& file_path, const User& user_data, const vector<unsigned char> &enc_key) {
+void write_user_data(const string &file_path, const User &user_data, const vector<unsigned char> &enc_key)
+{
     ofstream file(file_path);
-    vector<unsigned char> enc_buffer; 
-    if (file.is_open()) {
+    vector<unsigned char> enc_buffer;
+    if (file.is_open())
+    {
         file << user_data.username << '|'
              << user_data.account_id << '|'
              << to_string(user_data.balance) << '|'
              << user_data.hashed_password << "\n";
 
-        for (const Transfer& transfer : user_data.transfer_history) {
+        for (const Transfer &transfer : user_data.transfer_history)
+        {
             string serialized_transfer = serialize_transfer(transfer);
             Crypto::aes_encrypt(enc_key, serialized_transfer, enc_buffer);
             file << bytes_to_hex(enc_buffer) << "\n";
         }
 
         file.close();
-    } else {
+    }
+    else
+    {
         throw runtime_error("Failed to open path" + file_path);
     }
 }
 
-User load_user_data(const string& file_path, const vector<unsigned char> &enc_key) {
+User load_user_data(const string &file_path, const vector<unsigned char> &enc_key)
+{
     ifstream file(file_path);
     User user_data;
 
-    if (file.is_open()) {
+    if (file.is_open())
+    {
         string line;
-        if (getline(file, line)) {
+        if (getline(file, line))
+        {
             stringstream ss(line);
             getline(ss, user_data.username, '|');
             getline(ss, user_data.account_id, '|');
@@ -246,7 +257,8 @@ User load_user_data(const string& file_path, const vector<unsigned char> &enc_ke
             getline(ss, user_data.hashed_password);
 
             string enc_transfer_data;
-            while (getline(file, enc_transfer_data)) {
+            while (getline(file, enc_transfer_data))
+            {
                 string transfer_data;
                 Crypto::aes_decrypt(enc_key, hex_to_bytes(enc_transfer_data), transfer_data);
                 Transfer transfer = deserialize_transfer(transfer_data);
@@ -255,7 +267,9 @@ User load_user_data(const string& file_path, const vector<unsigned char> &enc_ke
             }
         }
         file.close();
-    } else {
+    }
+    else
+    {
         throw runtime_error("Failed to open user file:" + file_path);
     }
 
@@ -265,50 +279,71 @@ User load_user_data(const string& file_path, const vector<unsigned char> &enc_ke
 int send_with_header(int socket, const vector<unsigned char> &data_buffer, uint32_t sender)
 {
     Header header;
-    header.length = data_buffer.size();
-    header.sender = sender;
-    vector<unsigned char> header_buffer = serialize_header(header);
+    header.length = htonl(data_buffer.size()); // Convert to network byte order
+    header.sender = htonl(sender);             // Convert to network byte order
+    vector<unsigned char> header_buffer(sizeof(header));
+    memcpy(header_buffer.data(), &header, sizeof(header));
 
-    int ret = send(socket, header_buffer.data(), header_buffer.size(), 0);
-    if (ret <= 0)
+    ssize_t sent = 0;
+    while (static_cast<size_t>(sent) < header_buffer.size())
     {
-        return -1;
+        int ret = send(socket, header_buffer.data() + sent, header_buffer.size() - sent, 0);
+        if (ret <= 0)
+        {
+            perror("Error sending header data");
+            return -1;
+        }
+        sent += ret;
     }
 
-    ret = send(socket, data_buffer.data(), data_buffer.size(), 0);
-    if (ret <= 0)
+    sent = 0;
+    while (static_cast<size_t>(sent) < data_buffer.size())
     {
-        return -1;
+        int ret = send(socket, data_buffer.data() + sent, data_buffer.size() - sent, 0);
+        if (ret <= 0)
+        {
+            perror("Error sending data buffer");
+            return -1;
+        }
+        sent += ret;
     }
 
-    return ret;
+    return 0; // indicates success
 }
 
 int recv_with_header(int socket, vector<unsigned char> &data_buffer, Header &header)
 {
-    vector<unsigned char> header_buffer(Constants::HEADER_SIZE);
-    int ret = recv(socket, header_buffer.data(), Constants::HEADER_SIZE, 0);
-    if (ret <= 0)
+    vector<unsigned char> header_buffer(sizeof(header));
+    ssize_t received = 0;
+    while (static_cast<size_t>(received) < header_buffer.size())
     {
-        return -1;
-    }
-
-    header = deserialize_header(header_buffer.data());
-
-    data_buffer.resize(header.length);
-    vector<unsigned char> tmp_buffer(Constants::MAX_BUFFER_SIZE);
-    int recv_data = 0;
-
-    while (recv_data < static_cast<int>(header.length))
-    {
-        ret = recv(socket, tmp_buffer.data(), Constants::MAX_BUFFER_SIZE, 0);
+        int ret = recv(socket, header_buffer.data() + received, header_buffer.size() - received, 0);
         if (ret <= 0)
         {
+            perror("Error receiving header data");
             return -1;
         }
-        recv_data += ret;
-        copy(tmp_buffer.begin(), tmp_buffer.begin() + ret, data_buffer.begin() + recv_data - ret);
+        received += ret;
     }
 
-    return recv_data;
+    header = deserialize_header(header_buffer);
+
+    data_buffer.resize(header.length);
+    vector<unsigned char> tmp_buffer(header.length);
+    received = 0;
+
+    while (received < header.length)
+    {
+        ssize_t to_receive = min(static_cast<ssize_t>(tmp_buffer.size()), header.length - received);
+        int ret = recv(socket, tmp_buffer.data(), to_receive, 0);
+        if (ret <= 0)
+        {
+            perror("Error receiving data buffer");
+            return -1;
+        }
+        copy(tmp_buffer.begin(), tmp_buffer.begin() + ret, data_buffer.begin() + received);
+        received += ret;
+    }
+
+    return 0; // indicates success
 }

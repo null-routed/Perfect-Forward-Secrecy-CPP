@@ -11,7 +11,7 @@ int main() {
     vector<unsigned char> enc_msg;
     const char* keyChar= "0123456789abcdef";
     vector<unsigned char> key(keyChar, keyChar + 16);
-    int ret = Crypto::encryptMessage(key, msg, enc_msg);
+    int ret = Crypto::aes_encrypt(key, msg, enc_msg);
     if(ret == -1){
         cerr << "Encryption failed" << endl;
         exit(1);
@@ -22,7 +22,7 @@ int main() {
 
     // verifying that the enc messaged actually decrypts to the original messages
     string msg1;
-    ret = Crypto::decryptMessage(key, enc_msg, msg1);
+    ret = Crypto::aes_decrypt(key, enc_msg, msg1);
     if(ret == -1){
         cerr << "Decryption failed" << endl;
     }

@@ -1,5 +1,6 @@
 #include <cstring>
 #include <stdexcept>
+#include <iostream>
 
 #include "Crypto.h"
 #include "Constants.h"
@@ -7,17 +8,20 @@
 
 using namespace std;
 
-std::string Crypto::read_owner_from_cert(X509* cert) {
-    X509_NAME* owner_name = X509_get_subject_name(cert);
+std::string Crypto::read_owner_from_cert(X509 *cert)
+{
+    X509_NAME *owner_name = X509_get_subject_name(cert);
     char buffer[256];
     X509_NAME_oneline(owner_name, buffer, sizeof(buffer));
     return std::string(buffer);
 }
 
-bool Crypto::verify_certificate(X509_STORE *store, X509* cert){
+bool Crypto::verify_certificate(X509_STORE *store, X509 *cert)
+{
     X509_STORE_CTX *ctx = X509_STORE_CTX_new();
 
-    if (X509_STORE_CTX_init(ctx, store, cert, NULL) != 1) {
+    if (X509_STORE_CTX_init(ctx, store, cert, NULL) != 1)
+    {
         X509_STORE_CTX_free(ctx);
         throw runtime_error("Failed to initialize X509_STORE_CTX");
     }
@@ -29,34 +33,53 @@ bool Crypto::verify_certificate(X509_STORE *store, X509* cert){
     return verify_result;
 }
 
-vector<unsigned char> Crypto::read_public_key_from_cert(X509* cert) {
-    if (cert == nullptr) {
+vector<unsigned char> Crypto::read_public_key_from_cert(X509 *cert)
+{
+    if (cert == nullptr)
+    {
         throw runtime_error("Invalid X509 certificate pointer.");
     }
 
-    EVP_PKEY* pkey = X509_get_pubkey(cert);
-    if (pkey == nullptr) {
+    EVP_PKEY *pkey = X509_get_pubkey(cert);
+    if (pkey == nullptr)
+    {
         throw runtime_error("Could not extract public key from certificate.");
     }
 
-    RSA* rsa = EVP_PKEY_get1_RSA(pkey);
-    const BIGNUM* n;
-    RSA_get0_key(rsa, &n, nullptr, nullptr);
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+    if (!rsa)
+    {
+        throw runtime_error("Could not get RSA from EVP_PKEY.");
+    }
 
-    int length = BN_num_bytes(n);
-    vector<unsigned char> key(length);
-    BN_bn2bin(n, key.data());
+    BIO *bio = BIO_new(BIO_s_mem());
+    if (!bio)
+    {
+        throw runtime_error("Could not create BIO for public key.");
+    }
+
+    if (!PEM_write_bio_RSA_PUBKEY(bio, rsa))
+    {
+        BIO_free(bio);
+        throw runtime_error("Could not write RSA public key to BIO.");
+    }
+
+    char *pem_data;
+    long length = BIO_get_mem_data(bio, &pem_data);
+
+    vector<unsigned char> pem_key(pem_data, pem_data + length);
 
     EVP_PKEY_free(pkey);
     RSA_free(rsa);
-    
-    return key;
+    BIO_free(bio);
+
+    return pem_key;
 }
 
-int Crypto::rsa_encrypt(const vector<unsigned char>& pub_key, string& message, vector<unsigned char>& encrypted)
+int Crypto::rsa_encrypt(const vector<unsigned char> &pub_key, string &message, vector<unsigned char> &encrypted)
 {
-    RSA* rsa = RSA_new();
-    BIO* bio = BIO_new_mem_buf(pub_key.data(), (int)pub_key.size());
+    RSA *rsa = RSA_new();
+    BIO *bio = BIO_new_mem_buf(pub_key.data(), (int)pub_key.size());
 
     if (!PEM_read_bio_RSAPublicKey(bio, &rsa, NULL, NULL))
     {
@@ -75,7 +98,7 @@ int Crypto::rsa_encrypt(const vector<unsigned char>& pub_key, string& message, v
         return -1;
     }
 
-    int encrypted_length = RSA_public_encrypt(message.size(), (const unsigned char*)message.data(), encrypted.data(), rsa, RSA_PKCS1_OAEP_PADDING);
+    int encrypted_length = RSA_public_encrypt(message.size(), (const unsigned char *)message.data(), encrypted.data(), rsa, RSA_PKCS1_OAEP_PADDING);
 
     RSA_free(rsa);
     BIO_free(bio);
@@ -85,10 +108,10 @@ int Crypto::rsa_encrypt(const vector<unsigned char>& pub_key, string& message, v
     return encrypted_length;
 }
 
-int Crypto::rsa_decrypt(const vector<unsigned char>& priv_key, const vector<unsigned char>& encrypted, string& message)
+int Crypto::rsa_decrypt(const vector<unsigned char> &priv_key, const vector<unsigned char> &encrypted, string &message)
 {
-    RSA* rsa = RSA_new();
-    BIO* bio = BIO_new_mem_buf(priv_key.data(), (int)priv_key.size());
+    RSA *rsa = RSA_new();
+    BIO *bio = BIO_new_mem_buf(priv_key.data(), (int)priv_key.size());
 
     if (!PEM_read_bio_RSAPrivateKey(bio, &rsa, NULL, NULL))
     {
@@ -114,17 +137,8 @@ int Crypto::rsa_decrypt(const vector<unsigned char>& priv_key, const vector<unsi
 
 int Crypto::aes_encrypt(const vector<unsigned char> &key, string &message, vector<unsigned char> &encryptedMessage)
 {
-
     const EVP_CIPHER *cipher = EVP_aes_128_cbc();
     int iv_length = EVP_CIPHER_iv_length(cipher);
-    int block_size = EVP_CIPHER_block_size(cipher);
-    unsigned char iv[iv_length];
-
-    // Checking for integer overflow
-    if (message.size() + 1 > static_cast<unsigned long>(INT_MAX - block_size))
-    {
-        return -1;
-    }
 
     // Seeding the OpenSSL PRNG
     if (RAND_poll() == -1)
@@ -132,44 +146,46 @@ int Crypto::aes_encrypt(const vector<unsigned char> &key, string &message, vecto
         return -1;
     }
 
-    // Generating random bytes for the IV
-    if (RAND_bytes(iv, iv_length) == -1)
+    vector<unsigned char> iv(iv_length);
+    if (RAND_bytes(iv.data(), iv_length) != 1)
     {
         return -1;
     }
-
+    
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
     {
         return -1;
     }
 
-    if (EVP_EncryptInit(ctx, cipher, key.data(), iv) != 1)
+    if (EVP_EncryptInit(ctx, cipher, key.data(), iv.data()) != 1)
     {
         EVP_CIPHER_CTX_free(ctx);
         return -1;
     }
 
-    encryptedMessage.resize(EVP_CIPHER_block_size(cipher) + message.length() + 1 + iv_length);
-    memcpy(encryptedMessage.data(), iv, iv_length);
+    // Adding IV to the beginning of the encrypted message
+    encryptedMessage = iv;
 
     int outlen;
-    if (EVP_EncryptUpdate(ctx, encryptedMessage.data() + iv_length, &outlen, (unsigned char *)message.data(), message.length() + 1) != 1)
+    vector<unsigned char> block(message.size());
+    if (EVP_EncryptUpdate(ctx, block.data(), &outlen, (unsigned char *)message.data(), message.size()) != 1)
     {
         EVP_CIPHER_CTX_free(ctx);
         return -1;
     }
+
+    encryptedMessage.insert(encryptedMessage.end(), block.begin(), block.begin() + outlen);
 
     int finallen;
-    if (EVP_EncryptFinal(ctx, encryptedMessage.data() + iv_length + outlen, &finallen) != 1)
+    block.resize(message.size() - outlen);
+    if (EVP_EncryptFinal(ctx, block.data(), &finallen) != 1)
     {
         EVP_CIPHER_CTX_free(ctx);
         return -1;
     }
 
-    // Resizing the output length in case of the enc buffer being oversized
-    encryptedMessage.resize(iv_length + outlen + finallen);
-
+    encryptedMessage.insert(encryptedMessage.end(), block.begin(), block.begin() + finallen);
     EVP_CIPHER_CTX_free(ctx);
     message.clear();
 
@@ -248,7 +264,7 @@ int Crypto::aes_decrypt(const vector<unsigned char> &key, const vector<unsigned 
     int outlen, totallen;
 
     vector<unsigned char> iv(encryptedMessage.begin(), encryptedMessage.begin() + iv_length);
-
+    
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
     {
@@ -262,9 +278,9 @@ int Crypto::aes_decrypt(const vector<unsigned char> &key, const vector<unsigned 
     }
 
     // temp buffer for the plaintext
-    vector<unsigned char> plaintext(encryptedMessage.size() - iv_length);
+    vector<unsigned char> plaintext(encryptedMessage.size());
 
-    if (EVP_DecryptUpdate(ctx, plaintext.data(), &outlen, encryptedMessage.data() + iv_length, plaintext.size()) != 1)
+    if (EVP_DecryptUpdate(ctx, plaintext.data(), &outlen, encryptedMessage.data() + iv_length, encryptedMessage.size() - iv_length) != 1)
     {
         EVP_CIPHER_CTX_free(ctx);
         return -1;
@@ -306,6 +322,7 @@ vector<unsigned char> Crypto::generate_nonce(int length)
 
 int Crypto::generate_signature(const vector<unsigned char> &priv_key, const string &message, vector<unsigned char> &signature)
 {
+
     RSA *rsa = RSA_new();
     BIO *bio = BIO_new_mem_buf(priv_key.data(), (int)priv_key.size());
 
@@ -366,36 +383,53 @@ int Crypto::generate_signature(const vector<unsigned char> &priv_key, const stri
 
 bool Crypto::verify_signature(const string &message, const vector<unsigned char> &signature, const vector<unsigned char> &pub_key)
 {
-    RSA *rsa = RSA_new();
-    BIO *bio = BIO_new_mem_buf(pub_key.data(), (int)pub_key.size());
-
-    if (!PEM_read_bio_RSAPublicKey(bio, &rsa, NULL, NULL))
+    BIO *bio = BIO_new_mem_buf(pub_key.data(), -1);
+    if (!bio)
     {
-        RSA_free(rsa);
-        BIO_free(bio);
+        std::cerr << "Failed to create BIO" << std::endl;
         return false;
     }
 
-    EVP_PKEY *evp_pkey = EVP_PKEY_new();
-    EVP_PKEY_assign_RSA(evp_pkey, rsa);
+    EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+    if (!pkey)
+    {
+        std::cerr << "Failed to read public key" << std::endl;
+        BIO_free(bio);
+        return false;
+    }
 
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    EVP_VerifyInit(ctx, EVP_sha256());
-
-    if (EVP_VerifyUpdate(ctx, message.c_str(), message.size()) != 1)
+    if (!ctx)
     {
-        EVP_MD_CTX_free(ctx);
-        EVP_PKEY_free(evp_pkey);
+        std::cerr << "Failed to create EVP_MD_CTX" << std::endl;
+        EVP_PKEY_free(pkey);
         BIO_free(bio);
         return false;
     }
 
-    bool result = (EVP_VerifyFinal(ctx, signature.data(), (unsigned int)signature.size(), evp_pkey) == 1);
+    if (EVP_DigestVerifyInit(ctx, NULL, EVP_sha256(), NULL, pkey) != 1)
+    {
+        std::cerr << "Failed to initialize EVP_MD_CTX" << std::endl;
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(pkey);
+        BIO_free(bio);
+        return false;
+    }
 
+    bool result;
+    if (EVP_DigestVerify(ctx, signature.data(), signature.size(), (const unsigned char *)message.data(), message.size()) == 1)
+    {
+        result = true;
+    }
+    else
+    {
+        result = false;
+    }
+
+    // cleanup
     EVP_MD_CTX_free(ctx);
-    EVP_PKEY_free(evp_pkey);
+    EVP_PKEY_free(pkey);
     BIO_free(bio);
-
     return result;
 }
 
