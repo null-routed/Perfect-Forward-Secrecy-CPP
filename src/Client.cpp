@@ -333,6 +333,7 @@ void Client::handle_server_connection()
                 cout << "[+] Done! Exiting..." << endl;
                 exit(1);
             }
+            break;
             
         default:
             cout << "Invalid option selected." << endl;
