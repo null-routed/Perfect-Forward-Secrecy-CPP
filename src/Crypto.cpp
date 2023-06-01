@@ -1,5 +1,5 @@
 #include <cstring>
-
+#include <stdexcept>
 #include "Crypto.h"
 #include "Constants.h"
 #include "Utils.h"

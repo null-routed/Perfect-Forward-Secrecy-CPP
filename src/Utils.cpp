@@ -287,7 +287,7 @@ int recv_with_header(int socket, vector<unsigned char> &data_buffer, Header &hea
     vector<unsigned char> tmp_buffer(Constants::MAX_BUFFER_SIZE);
     int recv_data = 0;
 
-    while (recv_data < header.length)
+    while (recv_data < static_cast<int>(header.length))
     {
         ret = recv(socket, tmp_buffer.data(), Constants::MAX_BUFFER_SIZE, 0);
         if (ret <= 0)

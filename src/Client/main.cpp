@@ -15,9 +15,8 @@ using namespace std;
 int main()
 {
     cout << "Welcome to NM Bank!" << endl;
-    Client client = new Client();
+    Client client = Client();
     client.connect_with_server();
     client.destroy_session_keys();
-    delete client;
     return 0;
 }

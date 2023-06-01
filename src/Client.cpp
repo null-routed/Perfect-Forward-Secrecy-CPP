@@ -12,6 +12,8 @@
 #include <string>
 #include <openssl/x509.h>
 #include <arpa/inet.h>
+#include <sstream>
+#include <chrono>
 
 using namespace std;
 using namespace Constants;
@@ -93,7 +95,7 @@ void Client::handle_server_connection()
     bool loged_in = false;
 
     // Start session with server
-    Client::get_session(client_socket);
+    Client::get_session();
 
     int option;
 
@@ -147,7 +149,7 @@ void Client::handle_server_connection()
             in_msg = deserialize_message(in_msg_string);
 
             // Verify if HMAC of received message is correct
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), out_msg.hmac))
+            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
             }
@@ -185,7 +187,8 @@ void Client::handle_server_connection()
             }
             out_msg.hmac = bytes_to_hex(out_buff);
 
-            Crypto::aes_encrypt(session.aes_key, serialize_message(out_msg), out_buff);
+            out_msg_string = serialize_message(out_msg);
+            Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
             // Receiv server response
@@ -196,8 +199,7 @@ void Client::handle_server_connection()
             }
 
             in_msg = deserialize_message(in_msg_string);
-
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), out_msg.hmac))
+            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
             }
@@ -220,7 +222,8 @@ void Client::handle_server_connection()
             }
             out_msg.hmac = bytes_to_hex(out_buff);
 
-            Crypto::aes_encrypt(session.aes_key, serialize_message(out_msg), out_buff);
+            out_msg_string = serialize_message(out_msg);
+            Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
             // Receiv server response
@@ -231,7 +234,7 @@ void Client::handle_server_connection()
             }
             in_msg = deserialize_message(in_msg_string);
 
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), out_msg.hmac))
+            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
             }
@@ -257,7 +260,8 @@ void Client::handle_server_connection()
             }
             out_msg.hmac = bytes_to_hex(out_buff);
 
-            Crypto::aes_encrypt(session.aes_key, serialize_message(out_msg), out_buff);
+            out_msg_string = serialize_message(out_msg);
+            Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
             // Receiv server response
@@ -268,7 +272,7 @@ void Client::handle_server_connection()
             }
             in_msg = deserialize_message(in_msg_string);
 
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), out_msg.hmac))
+            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
             }
@@ -284,9 +288,9 @@ void Client::handle_server_connection()
                 stringstream ss(in_msg.content);
 
                 // Print all transfers untill variable ss is empty
-                while (getline(ss, transfer_str, '|');)
+                while (getline(ss, in_msg.content, '|'))
                 {
-                    transfer = deserialize_transfer(transfer_str);
+                    transfer = deserialize_transfer(in_msg.content);
                     cout << transfer << endl;
                 }
             }
@@ -300,8 +304,8 @@ void Client::handle_server_connection()
                 exit_with_error("[-] Error: failed to generate HMAC");
             }
             out_msg.hmac = bytes_to_hex(out_buff);
-
-            Crypto::aes_encrypt(session.aes_key, serialize_message(out_msg), out_buff);
+            out_msg_string = serialize_message(out_msg);
+            Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
             recv_with_header(client_socket, in_buff, in_msg_header);
@@ -310,7 +314,7 @@ void Client::handle_server_connection()
                 cout << "[-] Can't decrypt server response" << endl;
             }
             in_msg = deserialize_message(in_msg_string);
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), out_msg.hmac))
+            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
             }
@@ -337,7 +341,7 @@ void Client::handle_server_connection()
 void Client::get_session()
 {
     vector<unsigned char> in_buff;
-    vector<unsigned char> out_buff;
+    // vector<unsigned char> out_buff;
 
     string out_msg_string;
     Message out_msg;
@@ -348,9 +352,9 @@ void Client::get_session()
 
     // Send client hello
     out_msg.command = CLIENT_HELLO;
-    out_msg.content = Crypto::generate_nonce(NONCE_LENGTH);
+    out_msg.content = bytes_to_hex(Crypto::generate_nonce(NONCE_LENGTH));
     out_msg_string = serialize_message(out_msg);
-    out_buff(out_msg_string.begin(), out_msg_string.end());
+    vector<unsigned char> out_buff(out_msg_string.begin(), out_msg_string.end());
     send_with_header(client_socket, out_buff, 0);
 
     // receiv server hello
@@ -371,18 +375,18 @@ void Client::get_session()
     // Deserialize the certificate and extract the public key
     X509 *cert = deserialize_certificate(cert_vector);
     vector<unsigned char> server_pub_key = Crypto::read_public_key_from_cert(cert);
-    if (!verify_signature(in_msg_string, signature, server_pub_key) || !verify_certificate(cert_store, cert) || read_owner_from_cert(cert) != EXPECTED_CERT_OWNER)
+    if (!Crypto::verify_signature(in_msg_string, signature, server_pub_key) || !Crypto::verify_certificate(cert_store, cert) || Crypto::read_owner_from_cert(cert) != EXPECTED_CERT_OWNER)
     {
         exit_with_error("[-] Error");
     }
 
     // Generate HMAC key and AES key
-    session.hmac_key = generate_nonce(HMAC_LENGTH);
-    session.aes_key = generate_nonce(AES_LENGTH);
+    session.hmac_key = Crypto::generate_nonce(HMAC_LENGTH);
+    session.aes_key = Crypto::generate_nonce(AES_LENGTH);
 
     out_msg.command = KEY_EXCHANGE;
     out_msg.content = bytes_to_hex(session.hmac_key) + '-' + bytes_to_hex(session.aes_key);
-    if (rsa_encrypt(eph_pub_key, serialize_message(out_msg), out_buff) == -1)
+    if (Crypto::rsa_encrypt(eph_pub_key, serialize_message(out_msg), out_buff) == -1)
     {
         exit_with_error("[-]Error failed to encrypt key exchange message");
     }
@@ -392,7 +396,6 @@ void Client::get_session()
     // Clear memory
     in_msg.content.clear();
     memset(eph_pub_key.data(), 0, eph_pub_key.size());
-    memset(eph_priv_key.data(), 0, eph_priv_key.size());
 
     // receiv server OK
     recv_with_header(client_socket, in_buff, in_msg_header);
@@ -400,17 +403,15 @@ void Client::get_session()
     if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
     {
         cout << "[-] Key exchange failed: Can't decrypt session id" << endl;
-        return
     }
     in_msg = deserialize_message(in_msg_string);
     if (in_msg.command != SERVER_OK)
     {
         in_msg.content.clear();
         cout << "[-] Key exchange failed: wrong command" << endl;
-        return
     }
 
-    session.session_id = in_msg.content;
+    session.session_id = stoi(in_msg.content);
 }
 
 // Looks good, but I would also add a 5th option "CLOSE"

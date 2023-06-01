@@ -89,11 +89,19 @@ Header deserialize_header(const unsigned char *buffer);
 * @param socket socket
 * @param data_bufer bufer variable with data
 * @param sender number of sender
-* @return if sucesful
+* @return amount of bytes that were sent, -1 on error
 */
-int send_with_header(int socket, const vector<unsigned char> &data_buffer, uint32_t sender);
+int send_with_header(int socket, const std::vector<unsigned char> &data_buffer, uint32_t sender);
 
-int recv_with_header(int socket, vector<unsigned char> &data_buffer, Header &header);
+/**
+ * @brief receives a message with its corresponding header
+ * 
+ * @param socket 
+ * @param data_buffer 
+ * @param header 
+ * @return amount of bytes that were received, -1 on error
+ */
+int recv_with_header(int socket, std::vector<unsigned char> &data_buffer, Header &header);
 
 /**
 * @brief Converst a vector of bytes to a hexadecimal string
@@ -127,5 +135,9 @@ void exit_with_error(const std::string &error);
 * @param text Vector of bytes to print
 */
 void print_vector(std::vector<unsigned char> &text);
+
+void write_user_data(const std::string& file_path, const User& user_data, const std::vector<unsigned char> &enc_key);
+
+User load_user_data(const std::string& file_path, const std::vector<unsigned char> &enc_key);
 
 #endif // UTILS_H

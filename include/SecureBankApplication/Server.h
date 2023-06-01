@@ -69,13 +69,13 @@ public:
      * @param eph_pub_key The ephemeral public key
      * @return A server hello message.ì
      */
-    Message generate_server_hello(std::string client_nonce, std::string session_id, std::vector<unsigned char> &eph_pub_key);
+    Message generate_server_hello(std::string client_nonce, uint32_t session_id, std::vector<unsigned char> &eph_pub_key);
 
     /**
      * @brief Generates a session identifier
      * @return A session identifier
      */
-    std::string generate_session();
+    uint32_t generate_session();
 
     /**
      * @brief Handles a client connection
@@ -85,7 +85,7 @@ public:
 
 private:
     pthread_mutex_t sessions_mutex;
-    std::unordered_map<std::string, Session> sessions;
+    std::unordered_map<uint32_t, Session> sessions;
     X509 *own_cert;
     int server_socket;
     std::vector<unsigned char> enc_key;

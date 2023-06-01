@@ -31,7 +31,7 @@ Server::Server()
 Server::~Server()
 {
     pthread_mutex_lock(&sessions_mutex);
-    for (unordered_map<string, Session>::iterator it = sessions.begin(); it != sessions.end(); ++it)
+    for (unordered_map<uint32_t, Session>::iterator it = sessions.begin(); it != sessions.end(); ++it)
     {
         Server::destroy_session_keys(it->second);
     }
@@ -67,7 +67,7 @@ void Server::check_expired_sessions()
 
         // Iterating through all sessions, if the time since last ping is greater than TIMEOUT_TIME
         // we delete session keys and erase the session from the sessions map
-        for (unordered_map<string, Session>::iterator it = sessions.begin(); it != sessions.end();)
+        for (unordered_map<uint32_t, Session>::iterator it = sessions.begin(); it != sessions.end();)
         {
             chrono::duration<double> elapsed = chrono::system_clock::now() - it->second.last_ping;
             if (elapsed.count() > TIMEOUT_TIME)
@@ -138,7 +138,7 @@ void Server::start_server()
     }
 }
 
-Message Server::generate_server_hello(string client_nonce, string session_id, vector<unsigned char> &eph_pub_key)
+Message Server::generate_server_hello(string client_nonce, uint32_t session_id, vector<unsigned char> &eph_pub_key)
 {
     Session session = sessions.find(session_id)->second;
     Message server_hello;
@@ -146,14 +146,16 @@ Message Server::generate_server_hello(string client_nonce, string session_id, ve
     vector<unsigned char> signature;
     Crypto::generate_signature(priv_key, client_nonce + bytes_to_hex(eph_pub_key), signature);
     server_hello.content = bytes_to_hex(eph_pub_key) + "-" + bytes_to_hex(signature) + "-" + bytes_to_hex(serialize_certificate(own_cert));
+    return server_hello;
 }
 
-string Server::generate_session()
+uint32_t Server::generate_session()
 {
-    string session_id;
+    uint32_t session_id;
     do
     {
-        session_id = bytes_to_hex(Crypto::generate_nonce(8));
+        vector<unsigned char> session_bytes = Crypto::generate_nonce(4);
+        memcpy(&session_id, session_bytes.data(), sizeof(uint32_t));
     } while (sessions.find(session_id) != sessions.end());
 
     Session session;
@@ -177,7 +179,7 @@ void Server::handle_client_connection(int new_socket)
     Message in_msg;
     Header in_msg_header;
 
-    string session_id;
+    uint32_t session_id;
     Session sess;
 
     size_t pos;
@@ -189,8 +191,8 @@ void Server::handle_client_connection(int new_socket)
 
     if (in_msg_header.sender)
     {
-        session_id = to_string(in_msg_header.sender);
-        unordered_map<string, Session>::iterator it = sessions.find(session_id);
+        session_id = in_msg_header.sender;
+        unordered_map<uint32_t, Session>::iterator it = sessions.find(session_id);
         if (it == sessions.end())
         {
             out_msg.command = INVALID_SESSION;
@@ -284,8 +286,8 @@ void Server::handle_client_connection(int new_socket)
                 receiver.transfer_history.push_back(t);
                 usr.balance -= amount;
                 receiver.balance += amount;
-                write_user_data(BASE_PATH + sess.user, enc_key);
-                write_user_data(BASE_PATH + receiver_str, enc_key);
+                write_user_data(BASE_PATH + sess.user, usr, enc_key);
+                write_user_data(BASE_PATH + receiver_str, receiver, enc_key);
             }
 
             break;
@@ -386,7 +388,7 @@ void Server::handle_client_connection(int new_socket)
             memset(eph_pub_key.data(), 0, eph_pub_key.size());
             memset(eph_priv_key.data(), 0, eph_priv_key.size());
 
-            out_msg = {SERVER_OK, chrono::system_clock::now(), session_id, ""};
+            out_msg = {SERVER_OK, chrono::system_clock::now(), to_string(session_id), ""};
             out_msg_string = serialize_message(out_msg);
             Crypto::aes_encrypt(sess.aes_key, out_msg_string, out_buff);
             send_with_header(new_socket, out_buff, session_id);
