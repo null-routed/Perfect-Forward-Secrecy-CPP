@@ -14,9 +14,21 @@
 
 using namespace std;
 
+vector<unsigned char> read_aes_key(const string& file_name) {
+    ifstream file(file_name, ios::binary);
+    if(!file.is_open()){
+        throw runtime_error("Failed to open AES key file");
+    }
+    vector<unsigned char> key(istreambuf_iterator<char>(file), {});
+    return key;
+}
+
 vector<unsigned char> read_private_key_from_pem(const string &file_path)
 {
     ifstream file(file_path);
+    if(!file.is_open()){
+        throw runtime_error("Failed to open private key file");
+    }
     string priv_key_str((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
     return vector<unsigned char>(priv_key_str.begin(), priv_key_str.end());
 }
