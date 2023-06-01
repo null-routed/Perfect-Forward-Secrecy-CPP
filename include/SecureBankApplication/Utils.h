@@ -6,7 +6,6 @@
 #include <sys/socket.h>
 #include <openssl/x509.h>
 #include "Transaction.h"
-
 /**
 * @brief Reads a private key from a PEM file
 * @param file_path Path to the PEM file
