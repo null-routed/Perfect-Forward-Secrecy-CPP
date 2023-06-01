@@ -10,7 +10,7 @@ struct Session
 {
     std::vector<unsigned char> hmac_key;
     std::vector<unsigned char> aes_key;
-    std::string session_id;
+    uint32_t session_id;
     std::string username;
     std::string password;
 };
@@ -27,7 +27,7 @@ public:
 
     void handle_server_connection();
 
-    void get_session(int socket);
+    void get_session();
 
     void disconnect_with_server();
 
