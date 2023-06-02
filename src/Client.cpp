@@ -69,7 +69,7 @@ void Client::connect_with_server()
     {
         exit_with_error("[-] Error: Connection Failed \n");
     }
-    cout << "conected" << endl;
+    cout << "connected" << endl;
 }
 
 void Client::destroy_session_keys()
@@ -105,6 +105,7 @@ void Client::handle_server_connection()
         cout << "Enter the option number: ";
         cin >> option;
         option += 3; 
+        Client::connect_with_server();
         switch (option)
         {
         case LOGIN:
@@ -121,7 +122,7 @@ void Client::handle_server_connection()
             cout << "Enter password: ";
             cin >> session.password;
             out_msg.command = LOGIN;
-            out_msg.content = session.username + '|' + session.password;
+            out_msg.content = session.username + '-' + session.password;
             out_msg.timestamp = chrono::system_clock::now();
 
             // generate HMAC for login message
@@ -342,6 +343,7 @@ void Client::handle_server_connection()
 
 void Client::get_session()
 {
+    Client::connect_with_server();
     vector<unsigned char> in_buff;
     // vector<unsigned char> out_buff;
 
