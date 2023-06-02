@@ -105,6 +105,7 @@ void Client::handle_server_connection()
         Client::display_options(logged_in);
         cout << "Enter the option number: ";
         cin >> option;
+        option += 3; 
         switch (option)
         {
         case LOGIN:

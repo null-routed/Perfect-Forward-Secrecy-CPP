@@ -137,6 +137,11 @@ int Crypto::rsa_decrypt(const vector<unsigned char> &priv_key, const vector<unsi
 
 int Crypto::aes_encrypt(const vector<unsigned char> &key, string &message, vector<unsigned char> &encryptedMessage)
 {
+
+    if (message.size() > INT_MAX) {
+        return -1;
+    }
+
     const EVP_CIPHER *cipher = EVP_aes_128_cbc();
     int iv_length = EVP_CIPHER_iv_length(cipher);
 
