@@ -90,7 +90,6 @@ void Client::handle_server_connection()
     Message in_msg;
     Header in_msg_header;
 
-    Session session;
     Transfer transfer;
     bool logged_in = false;
 
@@ -133,6 +132,7 @@ void Client::handle_server_connection()
             out_msg.hmac = bytes_to_hex(out_buff);
 
             out_msg_string = serialize_message(out_msg);
+            out_msg.content.clear();
             Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
