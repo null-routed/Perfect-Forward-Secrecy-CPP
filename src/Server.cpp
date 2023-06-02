@@ -207,7 +207,7 @@ void Server::handle_client_connection(int new_socket)
 
         // Checking integrity, authenticity and replay attacks
         chrono::duration<long long, milli> diff = chrono::duration_cast<chrono::duration<long long, milli>>(chrono::system_clock::now() - in_msg.timestamp);
-        if (!Crypto::verify_hmac(sess->hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff.count()) > RECV_WINDOW || in_msg.timestamp > sess->last_ping)
+        if (!Crypto::verify_hmac(sess->hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff.count()) > RECV_WINDOW || in_msg.timestamp <= sess->last_ping)
         {
             // invalidating the session
             in_msg.command = -1;
@@ -221,7 +221,6 @@ void Server::handle_client_connection(int new_socket)
         string username, password, receiver_str;
         double amount;
         int n_transfers;
-
         switch (in_msg.command)
         {
         case LOGIN:

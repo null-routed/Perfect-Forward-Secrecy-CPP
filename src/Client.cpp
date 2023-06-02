@@ -69,7 +69,6 @@ void Client::connect_with_server()
     {
         exit_with_error("[-] Error: Connection Failed \n");
     }
-    cout << "connected" << endl;
 }
 
 void Client::destroy_session_keys()
@@ -417,6 +416,8 @@ void Client::get_session()
     }
 
     session.session_id = static_cast<uint32_t>(stoul(in_msg.content));
+    cout << "Handshake completed successfully" << endl;
+    close(client_socket);
 }
 
 void Client::display_options(bool logged_in)
