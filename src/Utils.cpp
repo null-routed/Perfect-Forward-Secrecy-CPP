@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <iostream>
 #include <stdio.h>
+#include <termios.h>
+
 #include "Utils.h"
 #include "Transaction.h"
 #include "Crypto.h"
@@ -346,4 +348,20 @@ int recv_with_header(int socket, vector<unsigned char> &data_buffer, Header &hea
     }
 
     return 0; // indicates success
+}
+
+void disable_echo()
+{
+    struct termios term;
+    tcgetattr(fileno(stdin), &term);
+    term.c_lflag &= ~ECHO;
+    tcsetattr(fileno(stdin), TCSAFLUSH, &term);
+}
+
+void enable_echo()
+{
+    struct termios term;
+    tcgetattr(fileno(stdin), &term);
+    term.c_lflag |= ECHO;
+    tcsetattr(fileno(stdin), TCSAFLUSH, &term);
 }

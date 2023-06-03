@@ -83,6 +83,15 @@ public:
      */
     void handle_client_connection(int new_socket);
 
+    /**
+     * @brief Checks whether a user is logged in or not
+     * 
+     * @param out_msg outgoing message
+     * @param sess user session
+     * @return bool 
+     */
+    bool is_user_logged_in(Message &out_msg, Session *sess);
+
 private:
     pthread_mutex_t sessions_mutex;
     std::unordered_map<uint32_t, Session> sessions;

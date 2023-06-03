@@ -91,10 +91,9 @@ void Client::handle_server_connection()
 
     Transfer transfer;
     bool logged_in = false;
-
+    string password;
     // Start session with server
     Client::get_session();
-
     int option = -1;
 
     while (option != CLOSE)
@@ -103,14 +102,19 @@ void Client::handle_server_connection()
         Client::display_options(logged_in);
         cout << "Enter the option number: ";
         cin >> option;
-        option += 3; 
+        option += 3;
         Client::connect_with_server();
+        if(!logged_in && option > LOGIN){
+            cout << "[-] Invalid option." << endl;
+            option = -1;
+            continue;
+        }
         switch (option)
         {
         case LOGIN:
             if (logged_in)
             {
-                cout << "Invalid option selected." << endl;
+                cout << "[-] Invalid option." << endl;
                 break;
             }
 
@@ -119,9 +123,13 @@ void Client::handle_server_connection()
             cin >> session.username;
 
             cout << "Enter password: ";
-            cin >> session.password;
+            disable_echo();
+            cin >> password;
+            enable_echo();
+            cout << "\n";
             out_msg.command = LOGIN;
-            out_msg.content = session.username + '-' + session.password;
+            out_msg.content = session.username + '-' + password;
+            password.clear();
             out_msg.timestamp = chrono::system_clock::now();
 
             // generate HMAC for login message
@@ -150,7 +158,7 @@ void Client::handle_server_connection()
             in_msg = deserialize_message(in_msg_string);
 
             // Verify if HMAC of received message is correct
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)))
+            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
             }
@@ -200,7 +208,7 @@ void Client::handle_server_connection()
             }
 
             in_msg = deserialize_message(in_msg_string);
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)))
+            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
             }
@@ -235,7 +243,7 @@ void Client::handle_server_connection()
             }
             in_msg = deserialize_message(in_msg_string);
 
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)))
+            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
             }
@@ -273,7 +281,7 @@ void Client::handle_server_connection()
             }
             in_msg = deserialize_message(in_msg_string);
 
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)))
+            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
             }
@@ -314,8 +322,9 @@ void Client::handle_server_connection()
             {
                 cout << "[-] Can't decrypt server response" << endl;
             }
+
             in_msg = deserialize_message(in_msg_string);
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)))
+            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
             {
                 cout << "[-] Received message with wrong HMAC" << endl;
             }
@@ -335,7 +344,8 @@ void Client::handle_server_connection()
             break;
 
         default:
-            cout << "Invalid option selected." << endl;
+            cout << "[-] Invalid option." << endl;
+            break;
         }
     }
 }
@@ -427,8 +437,12 @@ void Client::display_options(bool logged_in)
     {
         cout << "1. Log in" << endl;
     }
-    cout << "2. Make transfer" << endl;
-    cout << "3. Check balance" << endl;
-    cout << "4. Show history of transfers" << endl;
-    cout << "5. Safely close the connection to the server" << endl;
+
+    if (logged_in)
+    {
+        cout << "2. Make transfer" << endl;
+        cout << "3. Check balance" << endl;
+        cout << "4. Show history of transfers" << endl;
+        cout << "5. Safely close the connection to the server" << endl;
+    }
 }

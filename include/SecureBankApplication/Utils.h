@@ -161,4 +161,14 @@ User load_user_data(const std::string& file_path, const std::vector<unsigned cha
  */
 std::vector<unsigned char> read_aes_key(const std::string& file_name);
 
+/**
+ * @brief disables terminal echoing
+ */
+void disable_echo();
+
+/**
+ * @brief enables terminal echoing
+ */
+void enable_echo();
+
 #endif // UTILS_H

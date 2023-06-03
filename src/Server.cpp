@@ -66,8 +66,6 @@ void Server::check_expired_sessions()
         // Locking the mutex on the shared variable
         pthread_mutex_lock(&sessions_mutex);
 
-        // Iterating through all sessions, if the time since last ping is greater than TIMEOUT_TIME
-        // we delete session keys and erase the session from the sessions map
         for (unordered_map<uint32_t, Session>::iterator it = sessions.begin(); it != sessions.end();)
         {
             chrono::duration<double> elapsed = chrono::system_clock::now() - it->second.last_ping;
@@ -167,6 +165,17 @@ uint32_t Server::generate_session()
     return session_id;
 }
 
+bool is_user_logged_in(Message &out_msg, Session *sess)
+{
+    if(sess->user == ""){
+        cout << "[-] User is not logged in, aborting..." << endl;
+        out_msg.command = UNAUTHORIZED;
+        return false;
+    } else {
+        return true;
+    }
+}
+
 void Server::handle_client_connection(int new_socket)
 {
     bool must_delete = false;
@@ -252,19 +261,14 @@ void Server::handle_client_connection(int new_socket)
             break;
 
         case TRANSFER:
-            if (sess->user == "")
-            {
-                out_msg.command = UNAUTHORIZED;
-                break;
-            }
+            if(!is_user_logged_in(out_msg, sess)) break;
             out_msg.content = "";
             pos = in_msg.content.find('-');
             amount = stod(in_msg.content.substr(0, pos));
             receiver_str = in_msg.content.substr(pos + 1);
-
+            usr = load_user_data(BASE_PATH + sess->user, enc_key);
             try
             {
-                usr = load_user_data(BASE_PATH + sess->user, enc_key);
                 receiver = load_user_data(BASE_PATH + receiver_str, enc_key);
             }
             catch (const runtime_error &e)
@@ -292,23 +296,15 @@ void Server::handle_client_connection(int new_socket)
             break;
 
         case GET_BALANCE:
-            if (sess->user == "")
-            {
-                out_msg.command = UNAUTHORIZED;
-                break;
-            }
+            cout << "Received GET_BALANCE." << endl;
+            if(!is_user_logged_in(out_msg, sess)) break;
 
             usr = load_user_data(BASE_PATH + sess->user, enc_key);
             out_msg.content = to_string(usr.balance);
             break;
 
         case GET_TRANSFER_HISTORY:
-            if (sess->user == "")
-            {
-                out_msg.command = UNAUTHORIZED;
-                break;
-            }
-
+            if(!is_user_logged_in(out_msg, sess)) break;
             usr = load_user_data(BASE_PATH + sess->user, enc_key);
 
             n_transfers = min(MAX_TRANSFERS, static_cast<int>(usr.transfer_history.size()));
@@ -321,6 +317,7 @@ void Server::handle_client_connection(int new_socket)
             break;
 
         case CLOSE:
+            cout << "Received CLOSE, erasing session keys." << endl;
             must_delete = true;
             break;
 
@@ -368,14 +365,14 @@ void Server::handle_client_connection(int new_socket)
 
             if (Crypto::rsa_decrypt(eph_priv_key, in_buff, in_msg_string) == -1)
             {
-                cout << "[-] Key exchange failed: Can't decrypt session keys" << endl;
+                cout << "[-] Key exchange failed: Can't decrypt session keys.ì" << endl;
                 return;
             }
             in_msg = deserialize_message(in_msg_string);
             if (in_msg.command != KEY_EXCHANGE)
             {
                 in_msg.content.clear();
-                cout << "[-] Key exchange failed: wrong command" << endl;
+                cout << "[-] Key exchange failed: wrong command.ì" << endl;
                 return;
             }
             // saving the key in the session struct and cleaning the string to make sure no sensitive data is stored
@@ -391,9 +388,11 @@ void Server::handle_client_connection(int new_socket)
 
             Crypto::aes_encrypt(sess->aes_key, out_msg_string, out_buff);
             send_with_header(new_socket, out_buff, session_id);
+            cout << "[+] Handshake completed for session id:" << session_id << endl;
         }
         else
         {
+            cout << "[-] Invalid CLIENT_HELLO message, aborting" << endl;
             out_msg.command = INVALID_PARAMS;
             out_msg_string = serialize_message(out_msg);
             out_buff.assign(out_msg_string.begin(), out_msg_string.end());

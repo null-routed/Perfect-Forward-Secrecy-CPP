@@ -35,6 +35,7 @@ namespace Constants {
     
     const std::string BASE_PATH = "";
     const std::string EXPECTED_CERT_OWNER = "/CN=127.0.0.1:8080";
+    const std::string CERT_PATH = "/Users/niccolo/Desktop/coding/foc/foc-project/cert/";
 }
 
 #endif // CONSTANTS_H

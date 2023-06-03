@@ -12,7 +12,6 @@ struct Session
     std::vector<unsigned char> aes_key;
     uint32_t session_id;
     std::string username;
-    std::string password;
 };
 
 class Client
