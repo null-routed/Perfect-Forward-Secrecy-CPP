@@ -102,8 +102,13 @@ void Client::handle_server_connection()
         Client::display_options(logged_in);
         cout << "Enter the option number: ";
         cin >> option;
-        option += 3;
-        if(!logged_in && option > LOGIN){
+        if(cin.fail()) {
+            cout << "Please insert a valid number" << endl;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            continue;
+        }
+        if(!logged_in && option > LOGIN ){
             cout << "[-] Invalid option." << endl;
             option = -1;
             continue;
@@ -297,9 +302,6 @@ void Client::handle_server_connection()
             Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
-
-
-
             if(Client::verify_msg_authenticity(client_socket, in_buff, in_msg_header, out_msg, in_msg))
             {
                 if (in_msg.command != SUCCESS)
@@ -323,6 +325,7 @@ void Client::handle_server_connection()
 
         default:
             cout << "[-] Invalid option." << endl;
+            option = -1;
             break;
         }
     }
