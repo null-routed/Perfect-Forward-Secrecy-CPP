@@ -136,13 +136,13 @@ void exit_with_error(const std::string &error);
 void print_vector(std::vector<unsigned char> &text);
 
 /**
- * @brief Saves the user structure on file
+ * @brief Saves the user structure on file and removes sensitive data from the memory
  * 
  * @param file_path 
  * @param user_data 
  * @param enc_key 
  */
-void write_user_data(const std::string& file_path, const User& user_data, const std::vector<unsigned char> &enc_key);
+void write_user_data(const std::string& file_path, User& user_data, const std::vector<unsigned char> &enc_key);
 
 /**
  * @brief Reads a user file and returns the corresponding user structure
@@ -171,4 +171,10 @@ void disable_echo();
  */
 void enable_echo();
 
+/**
+ * @brief Clears out a transfer struct for safety reasons
+ * 
+ * @param transfer 
+ */
+void clear_transfer(Transfer &transfer);
 #endif // UTILS_H

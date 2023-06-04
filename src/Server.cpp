@@ -218,7 +218,7 @@ void Server::handle_client_connection(int new_socket)
         chrono::duration<long long, milli> diff = chrono::duration_cast<chrono::duration<long long, milli>>(chrono::system_clock::now() - in_msg.timestamp);
         if (!Crypto::verify_hmac(sess->hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff.count()) > RECV_WINDOW || in_msg.timestamp <= sess->last_ping)
         {
-            // invalidating the session
+            cout << "[-] Invalid HMAC or timestamp, aborting..." << endl;
             in_msg.command = -1;
         }
 
@@ -233,14 +233,14 @@ void Server::handle_client_connection(int new_socket)
         switch (in_msg.command)
         {
         case LOGIN:
-
+            cout << "[+] Received LOGIN " << endl;
             out_msg.content = "";
             pos = in_msg.content.find('-');
             username = in_msg.content.substr(0, pos);
             password = in_msg.content.substr(pos + 1);
             try
             {
-                usr = load_user_data(BASE_PATH + username, enc_key);
+                usr = load_user_data(BASE_PATH + username + FILE_EXT, enc_key);
             }
             catch (const runtime_error &e)
             {
@@ -248,13 +248,15 @@ void Server::handle_client_connection(int new_socket)
                 out_msg.command = INVALID_CREDENTIALS;
                 break;
             }
-
+            cout << usr.hashed_password << endl;
             if (Crypto::verify_hash(password, hex_to_bytes(usr.hashed_password)))
             {
+                cout << "[+] Login successful" << endl;
                 sess->user = username;
             }
             else
             {
+                cout << "[-] Invalid credentials" << endl;
                 out_msg.command = INVALID_CREDENTIALS;
             }
             password.clear();
@@ -266,10 +268,10 @@ void Server::handle_client_connection(int new_socket)
             pos = in_msg.content.find('-');
             amount = stod(in_msg.content.substr(0, pos));
             receiver_str = in_msg.content.substr(pos + 1);
-            usr = load_user_data(BASE_PATH + sess->user, enc_key);
+            usr = load_user_data(BASE_PATH + sess->user + FILE_EXT, enc_key);
             try
             {
-                receiver = load_user_data(BASE_PATH + receiver_str, enc_key);
+                receiver = load_user_data(BASE_PATH + receiver_str + FILE_EXT, enc_key);
             }
             catch (const runtime_error &e)
             {
@@ -289,8 +291,8 @@ void Server::handle_client_connection(int new_socket)
                 receiver.transfer_history.push_back(t);
                 usr.balance -= amount;
                 receiver.balance += amount;
-                write_user_data(BASE_PATH + sess->user, usr, enc_key);
-                write_user_data(BASE_PATH + receiver_str, receiver, enc_key);
+                write_user_data(BASE_PATH + sess->user + FILE_EXT, usr, enc_key);
+                write_user_data(BASE_PATH + receiver_str + FILE_EXT, receiver, enc_key);
             }
 
             break;
@@ -299,13 +301,13 @@ void Server::handle_client_connection(int new_socket)
             cout << "Received GET_BALANCE." << endl;
             if(!is_user_logged_in(out_msg, sess)) break;
 
-            usr = load_user_data(BASE_PATH + sess->user, enc_key);
+            usr = load_user_data(BASE_PATH + sess->user + FILE_EXT, enc_key);
             out_msg.content = to_string(usr.balance);
             break;
 
         case GET_TRANSFER_HISTORY:
             if(!is_user_logged_in(out_msg, sess)) break;
-            usr = load_user_data(BASE_PATH + sess->user, enc_key);
+            usr = load_user_data(BASE_PATH + sess->user + FILE_EXT, enc_key);
 
             n_transfers = min(MAX_TRANSFERS, static_cast<int>(usr.transfer_history.size()));
             for (int i = 0; i < n_transfers; i++)
@@ -388,7 +390,7 @@ void Server::handle_client_connection(int new_socket)
 
             Crypto::aes_encrypt(sess->aes_key, out_msg_string, out_buff);
             send_with_header(new_socket, out_buff, session_id);
-            cout << "[+] Handshake completed for session id:" << session_id << endl;
+            cout << "[+] Handshake completed for session id: " << session_id << endl;
         }
         else
         {

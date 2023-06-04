@@ -33,8 +33,10 @@ namespace Constants {
     const int INVALID_PARAMS = 13;
     const int INVALID_SESSION = 14;
     
-    const std::string BASE_PATH = "";
     const std::string EXPECTED_CERT_OWNER = "/CN=127.0.0.1:8080";
+    const std::string FILE_EXT = ".txt";
+
+    const std::string BASE_PATH = "/Users/niccolo/Desktop/coding/foc/foc-project/data/";
     const std::string CERT_PATH = "/Users/niccolo/Desktop/coding/foc/foc-project/cert/";
 }
 

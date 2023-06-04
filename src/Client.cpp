@@ -103,7 +103,6 @@ void Client::handle_server_connection()
         cout << "Enter the option number: ";
         cin >> option;
         option += 3;
-        Client::connect_with_server();
         if(!logged_in && option > LOGIN){
             cout << "[-] Invalid option." << endl;
             option = -1;
@@ -127,6 +126,7 @@ void Client::handle_server_connection()
             cin >> password;
             enable_echo();
             cout << "\n";
+            Client::connect_with_server();
             out_msg.command = LOGIN;
             out_msg.content = session.username + '-' + password;
             password.clear();
@@ -173,9 +173,9 @@ void Client::handle_server_connection()
                 cout << "Specify amount:" << endl;
                 cin >> transfer.amount;
             }
-
+            Client::connect_with_server();
             out_msg.command = TRANSFER;
-            out_msg.content = transfer.receiver + '-' + to_string(transfer.amount);
+            out_msg.content = to_string(transfer.amount) + "-" + transfer.receiver;
             out_msg.timestamp = chrono::system_clock::now();
 
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
@@ -207,12 +207,13 @@ void Client::handle_server_connection()
             break;
 
         case GET_BALANCE:
+            Client::connect_with_server();
             out_msg.command = GET_BALANCE;
             out_msg.timestamp = chrono::system_clock::now();
 
             if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
             {
-                exit_with_error("[-]Error: failed to generate HMAC");
+                exit_with_error("[-] Error: failed to generate HMAC");
             }
             out_msg.hmac = bytes_to_hex(out_buff);
 
@@ -240,6 +241,7 @@ void Client::handle_server_connection()
             break;
 
         case GET_TRANSFER_HISTORY:
+            Client::connect_with_server();
             out_msg.command = GET_TRANSFER_HISTORY;
             out_msg.timestamp = chrono::system_clock::now();
 
@@ -279,6 +281,7 @@ void Client::handle_server_connection()
             }
             break;
         case CLOSE:
+            Client::connect_with_server();
             out_msg.command = CLOSE;
             out_msg.timestamp = chrono::system_clock::now();
 
@@ -311,7 +314,7 @@ void Client::handle_server_connection()
             }
             else
             {
-                cout << "[-] Failed to close connection.y" << endl;
+                cout << "[-] Failed to close connection. " << endl;
             }
             break;
 
@@ -436,7 +439,7 @@ bool Client::verify_msg_authenticity(int client_socket, vector<unsigned char> &i
     in_msg = deserialize_message(in_msg_string);
 
     // Verify if HMAC and timestamp of received message are correct
-    if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
+    if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(chrono::system_clock::to_time_t(out_msg.timestamp) == chrono::system_clock::to_time_t(in_msg.timestamp)))
     {
         cout << "[-] Received message with wrong HMAC or Timestamp" << endl;
         return false;

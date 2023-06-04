@@ -23,7 +23,10 @@ vector<unsigned char> read_aes_key(const string &file_name)
     {
         throw runtime_error("Failed to open AES key file");
     }
-    vector<unsigned char> key(istreambuf_iterator<char>(file), {});
+
+    vector<char> temp_key((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
+    vector<unsigned char> key(temp_key.begin(), temp_key.end());
+    
     return key;
 }
 
@@ -215,7 +218,15 @@ void print_vector(vector<unsigned char> &text)
     cout << endl;
 }
 
-void write_user_data(const string &file_path, const User &user_data, const vector<unsigned char> &enc_key)
+void clear_transfer(Transfer &transfer) 
+{
+    transfer.sender.clear();  
+    transfer.receiver.clear();  
+    transfer.amount = 0;  
+    transfer.timestamp = 0;  
+}
+
+void write_user_data(const string &file_path, User &user_data, const vector<unsigned char> &enc_key)
 {
     ofstream file(file_path);
     vector<unsigned char> enc_buffer;
@@ -226,11 +237,12 @@ void write_user_data(const string &file_path, const User &user_data, const vecto
              << to_string(user_data.balance) << '|'
              << user_data.hashed_password << "\n";
 
-        for (const Transfer &transfer : user_data.transfer_history)
+        for (Transfer &transfer : user_data.transfer_history)
         {
             string serialized_transfer = serialize_transfer(transfer);
             Crypto::aes_encrypt(enc_key, serialized_transfer, enc_buffer);
             file << bytes_to_hex(enc_buffer) << "\n";
+            clear_transfer(transfer); // clearing out the transfer, thus removing sensitive data from the memory
         }
 
         file.close();
