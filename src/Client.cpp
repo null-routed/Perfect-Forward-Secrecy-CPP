@@ -260,17 +260,18 @@ void Client::handle_server_connection()
                 if (in_msg.command != SUCCESS)
                 {
                     in_msg.content.clear();
-                    cout << "[-] Failed to get balance" << endl;
+                    cout << "[-] Failed to get transfers history" << endl;
                 }
                 else
                 {
                     // separete transfers
                     stringstream ss(in_msg.content);
+                    string transfer_str;
 
                     // Print all transfers untill variable ss is empty
-                    while (getline(ss, in_msg.content, '|'))
+                    while (getline(ss, transfer_str, '-'))
                     {
-                        transfer = deserialize_transfer(in_msg.content);
+                        transfer = deserialize_transfer(transfer_str);
                         cout << transfer << endl;
                     }
                 }
@@ -444,6 +445,6 @@ bool Client::verify_msg_authenticity(int client_socket, vector<unsigned char> &i
         cout << "[-] Received message with wrong HMAC or Timestamp" << endl;
         return false;
     }
-
+    cout << in_msg_string << endl;
     return true;
 }
