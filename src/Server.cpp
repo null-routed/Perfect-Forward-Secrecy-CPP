@@ -215,13 +215,8 @@ void Server::handle_client_connection(int new_socket)
         in_msg = deserialize_message(in_msg_string);
 
         // Checking integrity, authenticity and replay attacks
-        chrono::duration<long long, milli> diff = chrono::duration_cast<chrono::duration<long long, milli>>(chrono::system_clock::now() - in_msg.timestamp);
-        cout << in_msg_string << endl;
-        cout << diff.count() << endl;
-        cout << (to_milliseconds(in_msg.timestamp) <= to_milliseconds(sess->last_ping)) << endl;
-        cout << to_milliseconds(in_msg.timestamp) << endl;
-        cout << to_milliseconds(sess->last_ping) << endl;
-        if (!Crypto::verify_hmac(sess->hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff.count()) > RECV_WINDOW || (to_milliseconds(in_msg.timestamp) <= to_milliseconds(sess->last_ping)))
+        long long diff = to_milliseconds(chrono::system_clock::now()) - to_milliseconds(in_msg.timestamp);
+        if (!Crypto::verify_hmac(sess->hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff) > RECV_WINDOW || (to_milliseconds(in_msg.timestamp) <= to_milliseconds(sess->last_ping)))
         {
             cout << "[-] Invalid HMAC or timestamp, aborting..." << endl;
             in_msg.command = -1;

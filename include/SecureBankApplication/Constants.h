@@ -14,7 +14,7 @@ namespace Constants {
     const int AES_LENGTH = 16;
     const int HMAC_LENGTH = 32;
     const int SERVER_PORT = 8080; 
-    const int RECV_WINDOW = 1000; // Acceptance window in milliseconds
+    const int RECV_WINDOW = 500; // Acceptance window in milliseconds
 
     // Commands encoding
     const int CLIENT_HELLO = 0; 
