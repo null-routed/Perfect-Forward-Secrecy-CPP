@@ -14,7 +14,7 @@ namespace Constants {
     const int AES_LENGTH = 16;
     const int HMAC_LENGTH = 32;
     const int SERVER_PORT = 8080; 
-    const int RECV_WINDOW = 750; // Acceptance window in milliseconds
+    const int RECV_WINDOW = 1000; // Acceptance window in milliseconds
 
     // Commands encoding
     const int CLIENT_HELLO = 0; 
@@ -36,8 +36,8 @@ namespace Constants {
     const std::string EXPECTED_CERT_OWNER = "/CN=127.0.0.1:8080";
     const std::string FILE_EXT = ".txt";
 
-    const std::string BASE_PATH = "/Users/niccolo/Desktop/coding/foc/foc-project/data/";
-    const std::string CERT_PATH = "/Users/niccolo/Desktop/coding/foc/foc-project/cert/";
+    const std::string BASE_PATH = "/mnt/c/MAKS_STUDIA/Semestr_2_Pisa/Cybersecurity/foc-project/data/";
+    const std::string CERT_PATH = "/mnt/c/MAKS_STUDIA/Semestr_2_Pisa/Cybersecurity/foc-project/cert/";
 }
 
 #endif // CONSTANTS_H

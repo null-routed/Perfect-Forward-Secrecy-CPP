@@ -116,13 +116,13 @@ Transfer deserialize_transfer(const string &serialized)
 
 string serialize_message_for_hmac(const Message &toSerialize)
 {
-    string sm = to_string(toSerialize.command) + "|" + to_string(chrono::system_clock::to_time_t(toSerialize.timestamp)) + "|" + toSerialize.content;
+    string sm = to_string(toSerialize.command) + "|" + to_string(to_milliseconds(toSerialize.timestamp)) + "|" + toSerialize.content;
     return sm;
 }
 
 string serialize_message(const Message &toSerialize)
 {
-    string sm = to_string(toSerialize.command) + "|" + to_string(chrono::system_clock::to_time_t(toSerialize.timestamp)) + "|" + toSerialize.content + "|" + toSerialize.hmac;
+    string sm = to_string(toSerialize.command) + "|" + to_string(to_milliseconds(toSerialize.timestamp)) + "|" + toSerialize.content + "|" + toSerialize.hmac;
     return sm;
 }
 
@@ -142,8 +142,8 @@ Message deserialize_message(const string &serialized)
     getline(ss, msg.hmac, '|');
 
     unix_ts = stoll(unix_str);
-    msg.timestamp = chrono::system_clock::from_time_t(unix_ts);
-
+    chrono::milliseconds duration(unix_ts);
+    msg.timestamp = chrono::system_clock::time_point(duration);
     return msg;
 }
 
@@ -376,4 +376,11 @@ void enable_echo()
     tcgetattr(fileno(stdin), &term);
     term.c_lflag |= ECHO;
     tcsetattr(fileno(stdin), TCSAFLUSH, &term);
+}
+
+long long to_milliseconds(const chrono::system_clock::time_point &time_point)
+{
+    chrono::system_clock::duration epoch = time_point.time_since_epoch();
+    chrono::milliseconds value = chrono::duration_cast<chrono::milliseconds>(epoch);
+    return value.count();
 }

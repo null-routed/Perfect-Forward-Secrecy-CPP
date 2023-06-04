@@ -216,7 +216,12 @@ void Server::handle_client_connection(int new_socket)
 
         // Checking integrity, authenticity and replay attacks
         chrono::duration<long long, milli> diff = chrono::duration_cast<chrono::duration<long long, milli>>(chrono::system_clock::now() - in_msg.timestamp);
-        if (!Crypto::verify_hmac(sess->hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff.count()) > RECV_WINDOW || in_msg.timestamp <= sess->last_ping)
+        cout << in_msg_string << endl;
+        cout << diff.count() << endl;
+        cout << (to_milliseconds(in_msg.timestamp) <= to_milliseconds(sess->last_ping)) << endl;
+        cout << to_milliseconds(in_msg.timestamp) << endl;
+        cout << to_milliseconds(sess->last_ping) << endl;
+        if (!Crypto::verify_hmac(sess->hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || abs(diff.count()) > RECV_WINDOW || (to_milliseconds(in_msg.timestamp) <= to_milliseconds(sess->last_ping)))
         {
             cout << "[-] Invalid HMAC or timestamp, aborting..." << endl;
             in_msg.command = -1;
@@ -248,7 +253,6 @@ void Server::handle_client_connection(int new_socket)
                 out_msg.command = INVALID_CREDENTIALS;
                 break;
             }
-            cout << usr.hashed_password << endl;
             if (Crypto::verify_hash(password, hex_to_bytes(usr.hashed_password)))
             {
                 cout << "[+] Login successful" << endl;
@@ -268,6 +272,11 @@ void Server::handle_client_connection(int new_socket)
             pos = in_msg.content.find('-');
             amount = stod(in_msg.content.substr(0, pos));
             receiver_str = in_msg.content.substr(pos + 1);
+            if(sess->user == receiver_str)
+            {
+                out_msg.command = INVALID_PARAMS;
+                break;
+            }
             usr = load_user_data(BASE_PATH + sess->user + FILE_EXT, enc_key);
             try
             {
@@ -293,6 +302,7 @@ void Server::handle_client_connection(int new_socket)
                 receiver.balance += amount;
                 write_user_data(BASE_PATH + sess->user + FILE_EXT, usr, enc_key);
                 write_user_data(BASE_PATH + receiver_str + FILE_EXT, receiver, enc_key);
+                clear_transfer(t);
             }
 
             break;
@@ -333,6 +343,10 @@ void Server::handle_client_connection(int new_socket)
 
         out_msg_string = serialize_message(out_msg);
         Crypto::aes_encrypt(sess->aes_key, out_msg_string, out_buff);
+        if(in_msg.command == GET_TRANSFER_HISTORY)
+        {
+            out_msg.content.clear();
+        }
         send_with_header(new_socket, out_buff, session_id);
 
         if (must_delete)
@@ -367,14 +381,13 @@ void Server::handle_client_connection(int new_socket)
 
             if (Crypto::rsa_decrypt(eph_priv_key, in_buff, in_msg_string) == -1)
             {
-                cout << "[-] Key exchange failed: Can't decrypt session keys.ì" << endl;
+                cout << "[-] Key exchange failed: Can't decrypt session keys" << endl;
                 return;
             }
             in_msg = deserialize_message(in_msg_string);
             if (in_msg.command != KEY_EXCHANGE)
             {
-                in_msg.content.clear();
-                cout << "[-] Key exchange failed: wrong command.ì" << endl;
+                cout << "[-] Key exchange failed: wrong command" << endl;
                 return;
             }
             // saving the key in the session struct and cleaning the string to make sure no sensitive data is stored
@@ -382,7 +395,6 @@ void Server::handle_client_connection(int new_socket)
             sess->aes_key = hex_to_bytes(in_msg.content.substr(0, pos));
             sess->hmac_key = hex_to_bytes(in_msg.content.substr(pos + 1));
             in_msg.content.clear();
-            memset(eph_pub_key.data(), 0, eph_pub_key.size());
             memset(eph_priv_key.data(), 0, eph_priv_key.size());
 
             out_msg = {SERVER_OK, chrono::system_clock::now(), to_string(session_id), ""};

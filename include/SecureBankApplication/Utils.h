@@ -177,4 +177,6 @@ void enable_echo();
  * @param transfer 
  */
 void clear_transfer(Transfer &transfer);
+
+long long to_milliseconds(const std::chrono::system_clock::time_point &time_point);
 #endif // UTILS_H

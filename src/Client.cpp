@@ -148,7 +148,6 @@ void Client::handle_server_connection()
             {
                 if (in_msg.command != SUCCESS)
                 {
-                    in_msg.content.clear();
                     cout << "[-] Failed to login" << endl;
                 }
                 else
@@ -192,7 +191,6 @@ void Client::handle_server_connection()
             {
                 if (in_msg.command != SUCCESS)
                 {
-                    in_msg.content.clear();
                     cout << "[-] Failed to transfer money" << endl;
                 }
                 else
@@ -232,6 +230,7 @@ void Client::handle_server_connection()
                 {
                     cout << "Account balance:";
                     cout << in_msg.content << endl;
+                    in_msg.content.clear();
                 }
             }
             else
@@ -273,7 +272,10 @@ void Client::handle_server_connection()
                     {
                         transfer = deserialize_transfer(transfer_str);
                         cout << transfer << endl;
+                        transfer_str.clear();
+                        clear_transfer(transfer);
                     }
+                    in_msg.content.clear();
                 }
             }
             else
@@ -383,10 +385,9 @@ void Client::get_session()
     }
     // Key exchange
     send_with_header(client_socket, out_buff, 0);
-
+    
     // Clear memory
-    in_msg.content.clear();
-    memset(eph_pub_key.data(), 0, eph_pub_key.size());
+    out_msg.content.clear();
 
     // receiv server OK
     recv_with_header(client_socket, in_buff, in_msg_header);
