@@ -144,33 +144,21 @@ void Client::handle_server_connection()
             Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
-            // Receiv server response
-            recv_with_header(client_socket, in_buff, in_msg_header);
-
-            // Decrypt message with AES key
-            if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
+            if(Client::verify_msg_authenticity(client_socket, in_buff, in_msg_header, out_msg, in_msg))
             {
-                cout << "[-] Key exchange failed: Can't decrypt session id" << endl;
-                exit_with_error("[-] Error: failed to decrypt session id");
-            }
-
-            // create message
-            in_msg = deserialize_message(in_msg_string);
-
-            // Verify if HMAC of received message is correct
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
-            {
-                cout << "[-] Received message with wrong HMAC" << endl;
-            }
-
-            if (in_msg.command != SUCCESS)
-            {
-                in_msg.content.clear();
-                cout << "[-] Failed to login" << endl;
+                if (in_msg.command != SUCCESS)
+                {
+                    in_msg.content.clear();
+                    cout << "[-] Failed to login" << endl;
+                }
+                else
+                {
+                    logged_in = true;
+                }
             }
             else
             {
-                logged_in = true;
+                cout << "[-] Failed to login" << endl;
             }
             break;
 
@@ -200,25 +188,22 @@ void Client::handle_server_connection()
             Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
-            // Receiv server response
-            recv_with_header(client_socket, in_buff, in_msg_header);
-            if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
+            if(Client::verify_msg_authenticity(client_socket, in_buff, in_msg_header, out_msg, in_msg))
             {
-                cout << "[-] Can't decrypt server response" << endl;
+                if (in_msg.command != SUCCESS)
+                {
+                    in_msg.content.clear();
+                    cout << "[-] Failed to transfer money" << endl;
+                }
+                else
+                {
+                    cout << "[+] Money transferred successfully" << endl;
+                }
             }
-
-            in_msg = deserialize_message(in_msg_string);
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
+            else
             {
-                cout << "[-] Received message with wrong HMAC" << endl;
-            }
-
-            if (in_msg.command != SUCCESS)
-            {
-                in_msg.content.clear();
                 cout << "[-] Failed to transfer money" << endl;
             }
-
             break;
 
         case GET_BALANCE:
@@ -235,27 +220,22 @@ void Client::handle_server_connection()
             Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
-            // Receiv server response
-            recv_with_header(client_socket, in_buff, in_msg_header);
-            if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
+            if(Client::verify_msg_authenticity(client_socket, in_buff, in_msg_header, out_msg, in_msg))
             {
-                cout << "[-] Can't decrypt server response" << endl;
-            }
-            in_msg = deserialize_message(in_msg_string);
-
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
-            {
-                cout << "[-] Received message with wrong HMAC" << endl;
-            }
-
-            if (in_msg.command != SUCCESS)
-            {
-                in_msg.content.clear();
-                cout << "[-] Failed to get balance" << endl;
+                if (in_msg.command != SUCCESS)
+                {
+                    in_msg.content.clear();
+                    cout << "[-] Failed to get balance" << endl;
+                }
+                else
+                {
+                    cout << "Account balance:";
+                    cout << in_msg.content << endl;
+                }
             }
             else
             {
-                cout << in_msg.content << endl;
+                cout << "[-] Failed get account balance" << endl;
             }
             break;
 
@@ -273,35 +253,29 @@ void Client::handle_server_connection()
             Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
-            // Receiv server response
-            recv_with_header(client_socket, in_buff, in_msg_header);
-            if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
+            if(Client::verify_msg_authenticity(client_socket, in_buff, in_msg_header, out_msg, in_msg))
             {
-                cout << "[-] Can't decrypt server response" << endl;
-            }
-            in_msg = deserialize_message(in_msg_string);
+                if (in_msg.command != SUCCESS)
+                {
+                    in_msg.content.clear();
+                    cout << "[-] Failed to get balance" << endl;
+                }
+                else
+                {
+                    // separete transfers
+                    stringstream ss(in_msg.content);
 
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
-            {
-                cout << "[-] Received message with wrong HMAC" << endl;
-            }
-
-            if (in_msg.command != SUCCESS)
-            {
-                in_msg.content.clear();
-                cout << "[-] Failed to get balance" << endl;
+                    // Print all transfers untill variable ss is empty
+                    while (getline(ss, in_msg.content, '|'))
+                    {
+                        transfer = deserialize_transfer(in_msg.content);
+                        cout << transfer << endl;
+                    }
+                }
             }
             else
             {
-                // separete transfers
-                stringstream ss(in_msg.content);
-
-                // Print all transfers untill variable ss is empty
-                while (getline(ss, in_msg.content, '|'))
-                {
-                    transfer = deserialize_transfer(in_msg.content);
-                    cout << transfer << endl;
-                }
+                cout << "[-] Failed get transfers history" << endl;
             }
             break;
         case CLOSE:
@@ -317,29 +291,27 @@ void Client::handle_server_connection()
             Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
             send_with_header(client_socket, out_buff, session.session_id);
 
-            recv_with_header(client_socket, in_buff, in_msg_header);
-            if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
-            {
-                cout << "[-] Can't decrypt server response" << endl;
-            }
 
-            in_msg = deserialize_message(in_msg_string);
-            if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
-            {
-                cout << "[-] Received message with wrong HMAC" << endl;
-            }
 
-            if (in_msg.command != SUCCESS)
+
+            if(Client::verify_msg_authenticity(client_socket, in_buff, in_msg_header, out_msg, in_msg))
             {
-                cout << "[-] Failed to close connection." << endl;
+                if (in_msg.command != SUCCESS)
+                {
+                    cout << "[-] Failed to close connection." << endl;
+                }
+                else
+                {
+                    cout << "[+] Connection closed, destroying keys..." << endl;
+                    Client::destroy_session_keys();
+                    close(client_socket);
+                    cout << "[+] Done! Exiting..." << endl;
+                    exit(1);
+                }
             }
             else
             {
-                cout << "[+] Connection closed, destroying keys..." << endl;
-                Client::destroy_session_keys();
-                close(client_socket);
-                cout << "[+] Done! Exiting..." << endl;
-                exit(1);
+                cout << "[-] Failed to close connection.y" << endl;
             }
             break;
 
@@ -445,4 +417,30 @@ void Client::display_options(bool logged_in)
         cout << "4. Show history of transfers" << endl;
         cout << "5. Safely close the connection to the server" << endl;
     }
+}
+
+bool Client::verify_msg_authenticity(int client_socket, vector<unsigned char> &in_buff, Header &in_msg_header, Message &out_msg, Message &in_msg)
+{
+    string in_msg_string;
+    // Receiv server response
+    recv_with_header(client_socket, in_buff, in_msg_header);
+
+    // Decrypt message with AES key
+    if (Crypto::aes_decrypt(session.aes_key, in_buff, in_msg_string) == -1)
+    {
+        cout << "[-] Can't decrypt server response" << endl;
+        return false;
+    }
+
+    // create message
+    in_msg = deserialize_message(in_msg_string);
+
+    // Verify if HMAC and timestamp of received message are correct
+    if (!Crypto::verify_hmac(session.hmac_key, serialize_message_for_hmac(in_msg), hex_to_bytes(in_msg.hmac)) || !(out_msg.timestamp == in_msg.timestamp))
+    {
+        cout << "[-] Received message with wrong HMAC or Timestamp" << endl;
+        return false;
+    }
+
+    return true;
 }

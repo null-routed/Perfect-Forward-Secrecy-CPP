@@ -36,6 +36,8 @@ public:
 
     void destroy_session_keys();
 
+    bool verify_msg_authenticity(int client_socket, std::vector<unsigned char> &in_buff, Header &in_msg_header, Message &out_msg, Message &in_msg);
+
 private:
 
     X509* ca_cert;
