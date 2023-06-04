@@ -165,7 +165,7 @@ uint32_t Server::generate_session()
     return session_id;
 }
 
-bool is_user_logged_in(Message &out_msg, Session *sess)
+bool Server::is_user_logged_in(Message &out_msg, Session *sess)
 {
     if(sess->user == ""){
         cout << "[-] User is not logged in, aborting..." << endl;
