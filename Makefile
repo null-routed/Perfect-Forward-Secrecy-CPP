@@ -1,5 +1,8 @@
 CXX = g++  
 CERT_PATH =$(CURDIR)/cert/
+# Maks
+# CXXFLAGS = -std=c++11 -Wall -Wextra -Wno-deprecated-declarations -fcompare-debug-second -Iinclude/SecureBankApplication -pthread -lcrypto -L/usr/local/lib64 -DCERT_PATH=\"$(CERT_PATH)\"
+# Niccolo
 CXXFLAGS = -std=c++11 -Wall -Wextra -Wno-deprecated-declarations -Iinclude/SecureBankApplication -lcrypto -DCERT_PATH=\"$(CERT_PATH)\"
 TARGET_DIR = bin
 TARGET1 = $(TARGET_DIR)/Server/main  
