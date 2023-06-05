@@ -384,3 +384,21 @@ long long to_milliseconds(const chrono::system_clock::time_point &time_point)
     chrono::milliseconds value = chrono::duration_cast<chrono::milliseconds>(epoch);
     return value.count();
 }
+
+bool is_alpha_numeric(const string& str) {
+    for (char c : str) {
+        if (!isalnum(c)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void print_separator()
+{
+    cout << endl;
+    for(int i = 0; i < 60; i++){
+        cout << '-';
+    }
+    cout << endl << endl;;
+}

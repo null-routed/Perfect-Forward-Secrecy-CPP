@@ -34,12 +34,6 @@ public:
     ~Server();
 
     /**
-     * @brief Signal handling function
-     * Deletes the current Server instance and exits the program with status code 1
-     */
-    void handle_signal();
-
-    /**
      * @brief Destroys session keys
      * @param session Reference to the session object whose keys need to be destroyed
      */
@@ -78,6 +72,69 @@ public:
     uint32_t generate_session();
 
     /**
+     * @brief 
+     * 
+     * @param out_msg outgoing message
+     * @param in_msg incoming message
+     * @param sess 
+     */
+    void handle_login(Message &out_msg, Message &in_msg, Session *sess);
+
+    /**
+     * @brief 
+     * 
+     * @param out_msg outgoing message
+     * @param in_msg incoming message
+     * @param sess 
+     */
+    void handle_transfer(Message &out_msg, Message &in_msg, Session *sess);
+
+    /**
+     * @brief 
+     * 
+     * @param out_msg outgoing message
+     * @param sess 
+     */
+    void handle_get_balance(Message &out_msg, Session *sess);
+
+    /**
+     * @brief 
+     * @param out_msg outgoing message
+     * @param sess 
+     */
+    void handle_get_transfer_history(Message &out_msg, Session *sess);
+
+    /**
+     * @brief 
+     * @param new_socket The socket descriptor of the new connection
+     * @param in_buff incoming buffer
+     */
+    void handle_handshake(int new_socket, std::vector<unsigned char> &in_buff);
+
+    /**
+     * @brief 
+     * @param session_id 
+     * @return Session*, null if the session does not exist
+     */
+    Session *get_session_by_id(uint32_t session_id);
+
+    /**
+     * @brief 
+     * @param session_id 
+     */
+    void delete_session_by_id(uint32_t session_id);
+
+    /**
+     * @brief Checks if a message is valid using timestamps and HMAC
+     * 
+     * @param in_msg 
+     * @param sess 
+     * @return true 
+     * @return false 
+     */
+    bool is_message_valid(Message &in_msg, Session *sess);
+
+    /**
      * @brief Handles a client connection
      * @param new_socket The socket descriptor of the new connection
      */
@@ -85,12 +142,10 @@ public:
 
     /**
      * @brief Checks whether a user is logged in or not
-     * 
-     * @param out_msg outgoing message
      * @param sess user session
      * @return bool 
      */
-    bool is_user_logged_in(Message &out_msg, Session *sess);
+    bool is_user_logged_in(Session *sess);
 
 private:
     pthread_mutex_t sessions_mutex;

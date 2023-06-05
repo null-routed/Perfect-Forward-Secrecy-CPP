@@ -9,10 +9,10 @@ ostream& operator<<(ostream& os, const Transfer& transfer) {
     timestampStr = timestampStr.substr(0, timestampStr.length() - 1);  // Remove the newline character
 
     // Print the transfer information in a fancy format
-    os << "Sender: " << transfer.sender << endl;
-    os << "Receiver: " << transfer.receiver << endl;
-    os << "Amount: " << transfer.amount << endl;
-    os << "Timestamp: " << timestampStr;
-
+    os << endl;
+    os << "| Sender: " << transfer.sender << endl;
+    os << "| Receiver: " << transfer.receiver << endl;
+    os << "| Amount: $" << transfer.amount << endl;
+    os << "| Timestamp: " << timestampStr << endl;;
     return os;
 }
