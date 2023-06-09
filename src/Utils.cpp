@@ -402,3 +402,15 @@ void print_separator()
     }
     cout << endl << endl;;
 }
+
+string to_lower_case(const string& str) {
+    string result = str;
+
+    for (char& c : result) {
+        if (c >= 'A' && c <= 'Z') {
+            c = c - 'A' + 'a';
+        }
+    }
+
+    return result;
+}

@@ -184,7 +184,7 @@ void Server::handle_login(Message &out_msg, Message &in_msg, Session *sess)
     out_msg.content = "";
     User usr;
     size_t pos = in_msg.content.find('-');
-    string username = in_msg.content.substr(0, pos);
+    string username = to_lower_case(in_msg.content.substr(0, pos));
     string password = in_msg.content.substr(pos + 1);
 
     if (!is_alpha_numeric(username)) // Checking that the username string is safe to concatenate to a dir path
@@ -229,7 +229,7 @@ void Server::handle_transfer(Message &out_msg, Message &in_msg, Session *sess)
     out_msg.content = "";
     size_t pos = in_msg.content.find('-');
     double amount = stod(in_msg.content.substr(0, pos));
-    string receiver_str = in_msg.content.substr(pos + 1);
+    string receiver_str = to_lower_case(in_msg.content.substr(pos + 1));
 
     if (sess->user == receiver_str || !is_alpha_numeric(receiver_str))
     {

@@ -186,14 +186,10 @@ void clear_transfer(Transfer &transfer);
  */
 long long to_milliseconds(const std::chrono::system_clock::time_point &time_point);
 
-/**
- * @brief Checks wether or not a string is made of alphanumeric chars
- * 
- * @param str 
- * @return bool
- */
 bool is_alpha_numeric(const std::string& str);
 
 void print_separator();
+
+std::string to_lower_case(const std::string& str);
 
 #endif // UTILS_H
