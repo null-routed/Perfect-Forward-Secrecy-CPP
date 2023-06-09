@@ -183,7 +183,7 @@ int Crypto::aes_encrypt(const vector<unsigned char> &key, string &message, vecto
     encryptedMessage.insert(encryptedMessage.end(), block.begin(), block.begin() + outlen);
 
     int finallen;
-    block.resize(message.size() - outlen);
+    block.resize(message.size() - outlen + EVP_CIPHER_block_size(cipher));
     if (EVP_EncryptFinal(ctx, block.data(), &finallen) != 1)
     {
         EVP_CIPHER_CTX_free(ctx);
@@ -241,13 +241,14 @@ bool Crypto::generate_key_pair(vector<unsigned char> &priv_key, vector<unsigned 
     return true;
 }
 
-bool Crypto::generate_hmac(const vector<unsigned char> &key, const string &message, vector<unsigned char> &hmac)
+bool Crypto::generate_hmac(const vector<unsigned char>& key, const string& message, vector<unsigned char>& hmac)
 {
     unsigned int hmac_size = EVP_MD_size(EVP_sha256());
     hmac.resize(hmac_size);
 
-    // Create HMAC
-    HMAC(EVP_sha256(), key.data(), key.size(), (const unsigned char *)message.data(), message.size(), hmac.data(), &hmac_size);
+    if (HMAC(EVP_sha256(), key.data(), key.size(), (const unsigned char*)message.data(), message.size(), hmac.data(), &hmac_size) == nullptr) {
+        return false; 
+    }
 
     return true;
 }
