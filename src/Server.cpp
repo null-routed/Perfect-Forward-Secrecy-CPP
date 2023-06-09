@@ -214,8 +214,8 @@ void Server::handle_login(Message &out_msg, Message &in_msg, Session *sess)
         cout << "[-] Invalid credentials" << endl;
         out_msg.command = INVALID_CREDENTIALS;
     }
-    password.clear();
-    in_msg.content.clear();
+    memset(&password[0], 0, password.size());
+    memset(&in_msg.content[0], 0, in_msg.content.size());
 }
 
 void Server::handle_transfer(Message &out_msg, Message &in_msg, Session *sess)
@@ -347,7 +347,7 @@ void Server::handle_handshake(int new_socket, vector<unsigned char> &in_buff)
         size_t pos = in_msg.content.find('-');
         sess->aes_key = hex_to_bytes(in_msg.content.substr(0, pos));
         sess->hmac_key = hex_to_bytes(in_msg.content.substr(pos + 1));
-        in_msg.content.clear();
+        memset(&in_msg.content[0], 0, in_msg.content.size());
         memset(eph_priv_key.data(), 0, eph_priv_key.size());
 
         out_msg = {SERVER_OK, chrono::system_clock::now(), to_string(session_id), ""};
@@ -477,7 +477,7 @@ void Server::handle_client_connection(int new_socket)
         Crypto::aes_encrypt(sess->aes_key, out_msg_string, out_buff);
         if (in_msg.command == GET_TRANSFER_HISTORY)
         {
-            out_msg.content.clear();
+            memset(&out_msg.content[0], 0, out_msg.content.size());
         }
         send_with_header(new_socket, out_buff, session_id);
 

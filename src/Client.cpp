@@ -202,7 +202,7 @@ void Client::get_session(int verbose)
     send_with_header(client_socket, out_buff, 0);
     
     // Clear memory
-    out_msg.content.clear();
+    memset(&out_msg.content[0], 0, out_msg.content.size());
 
     // receiv server OK
     recv_with_header(client_socket, in_buff, in_msg_header);
@@ -213,7 +213,7 @@ void Client::get_session(int verbose)
     in_msg = deserialize_message(in_msg_string);
     if (in_msg.command != SERVER_OK)
     {
-        in_msg.content.clear();
+        memset(&in_msg.content[0], 0, in_msg.content.size());
         cout << "[-] Key exchange failed: wrong command" << endl;
     }
 
@@ -285,19 +285,19 @@ bool Client::handle_login(vector<unsigned char> &in_buff, vector<unsigned char> 
     connect_with_server();
     out_msg.command = LOGIN;
     out_msg.content = session.username + '-' + password;
-    password.clear();
+    memset(&password[0], 0, password.size());
     out_msg.timestamp = chrono::system_clock::now();
 
     // generate HMAC for login message
     if (!Crypto::generate_hmac(session.hmac_key, serialize_message_for_hmac(out_msg), out_buff))
     {
-        out_msg.content.clear();
+        memset(&out_msg.content[0], 0, out_msg.content.size());
         exit_with_error("[-]Error: failed to generate HMAC");
     }
     out_msg.hmac = bytes_to_hex(out_buff);
 
     out_msg_string = serialize_message(out_msg);
-    out_msg.content.clear();
+    memset(&out_msg.content[0], 0, out_msg.content.size());
     Crypto::aes_encrypt(session.aes_key, out_msg_string, out_buff);
     send_with_header(client_socket, out_buff, session.session_id);
 
@@ -329,7 +329,7 @@ void Client::handle_transfer(Transfer transfer, vector<unsigned char> &in_buff, 
     cin >> transfer.receiver;
 
     // Make sure User can't send amount smaller than 0
-    while (transfer.amount <= 0.0)
+    while (transfer.amount <= 0.0 || transfer.amount > numeric_limits<double>::max())
     {
         cout << "Specify amount: ";
         cin >> transfer.amount;
@@ -395,7 +395,7 @@ void Client::handle_get_balance(vector<unsigned char> &in_buff, vector<unsigned 
             {
                 if (in_msg.command != SUCCESS)
                 {
-                    in_msg.content.clear();
+                    memset(&in_msg.content[0], 0, in_msg.content.size());
                     cout << "[-] Failed to get balance" << endl;
                     cout << "[-] " << commands_list[in_msg.command] << endl;
                 }
@@ -403,7 +403,7 @@ void Client::handle_get_balance(vector<unsigned char> &in_buff, vector<unsigned 
                 {
                     cout << endl << "YOUR BALANCE:";
                     cout << " $" << in_msg.content << endl;
-                    in_msg.content.clear();
+                    memset(&in_msg.content[0], 0, in_msg.content.size());
                 }
             }
             else
@@ -433,7 +433,7 @@ void Client::handle_get_transfer_history(Transfer transfer, vector<unsigned char
     {
         if (in_msg.command != SUCCESS)
         {
-            in_msg.content.clear();
+            memset(&in_msg.content[0], 0, in_msg.content.size());
             cout << "[-] Failed to get transfers history" << endl;
             cout << "[-] " << commands_list[in_msg.command] << endl;
         }
@@ -448,10 +448,10 @@ void Client::handle_get_transfer_history(Transfer transfer, vector<unsigned char
             {
                 transfer = deserialize_transfer(transfer_str);
                 cout << transfer;
-                transfer_str.clear();
+                memset(&transfer_str[0], 0, transfer_str.size());
                 clear_transfer(transfer);
             }
-            in_msg.content.clear();
+            memset(&in_msg.content[0], 0, in_msg.content.size());
         }
     }
     else

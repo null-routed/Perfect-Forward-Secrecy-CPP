@@ -103,7 +103,7 @@ int Crypto::rsa_encrypt(const vector<unsigned char> &pub_key, string &message, v
     RSA_free(rsa);
     BIO_free(bio);
 
-    message.clear();
+    memset(&message[0], 0, message.size());
 
     return encrypted_length;
 }
@@ -192,7 +192,7 @@ int Crypto::aes_encrypt(const vector<unsigned char> &key, string &message, vecto
 
     encryptedMessage.insert(encryptedMessage.end(), block.begin(), block.begin() + finallen);
     EVP_CIPHER_CTX_free(ctx);
-    message.clear();
+    memset(&message[0], 0, message.size());
 
     return encryptedMessage.size();
 }

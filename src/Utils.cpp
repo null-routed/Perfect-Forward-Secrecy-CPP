@@ -220,8 +220,8 @@ void print_vector(vector<unsigned char> &text)
 
 void clear_transfer(Transfer &transfer) 
 {
-    transfer.sender.clear();  
-    transfer.receiver.clear();  
+    memset(&transfer.sender[0], 0, transfer.sender.size());
+    memset(&transfer.receiver[0], 0, transfer.receiver.size());
     transfer.amount = 0;  
     transfer.timestamp = 0;  
 }
@@ -277,7 +277,7 @@ User load_user_data(const string &file_path, const vector<unsigned char> &enc_ke
                 Crypto::aes_decrypt(enc_key, hex_to_bytes(enc_transfer_data), transfer_data);
                 Transfer transfer = deserialize_transfer(transfer_data);
                 user_data.transfer_history.push_back(transfer);
-                transfer_data.clear();
+                memset(&transfer_data[0], 0, transfer_data.size());
             }
         }
         file.close();
